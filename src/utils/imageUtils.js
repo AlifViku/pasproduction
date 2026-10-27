@@ -96,6 +96,103 @@ export function autoTrimTransparent(canvas) {
 }
 
 /**
+ * Post-process: Remove residual fabric-color fringe & semi-transparent halo
+ * from an already-extracted transparent PNG canvas.
+ *
+ * This solves the "white outline on colored shirt" problem where flood-fill
+ * missed interior white patches between design elements on a white shirt.
+ *
+ * Strategy:
+ *  Pass 1 – Global fabric suppression: any opaque pixel whose color is very
+ *            close to [fr, fg, fb] gets its alpha scaled down aggressively.
+ *  Pass 2 – Neighbor-aware fringe erosion: semi-transparent pixels that are
+ *            surrounded mostly by transparent neighbours get killed off.
+ *  Pass 3 – Light-on-light suppression: if fabric is bright (e.g. white), do
+ *            a second wider sweep to catch near-white fringe pixels.
+ */
+export function removeFabricFringe(canvas, fabricRgb, options = {}) {
+  const {
+    globalTolerance  = 38,   // How close to fabric color = transparent
+    fringeSweeps     = 2,    // Number of erosion neighbour passes
+    lightSuppression = true, // Extra pass for white/near-white fabric
+  } = options;
+
+  const ctx = canvas.getContext('2d', { willReadFrequently: true });
+  const w = canvas.width;
+  const h = canvas.height;
+  const imgData = ctx.getImageData(0, 0, w, h);
+  const data = imgData.data;
+
+  const [fr, fg, fb] = fabricRgb;
+  const fabricLum = 0.299 * fr + 0.587 * fg + 0.114 * fb;
+  const isBrightFabric = fabricLum > 200; // white / cream / very light fabric
+
+  // --- Pass 1: Global fabric color suppression ---
+  for (let i = 0; i < data.length; i += 4) {
+    const a = data[i + 3];
+    if (a < 10) continue; // Already transparent — skip
+
+    const r = data[i], g = data[i + 1], b = data[i + 2];
+    const dist = getColorDistance(r, g, b, fr, fg, fb);
+
+    if (dist <= globalTolerance) {
+      // Proportional fade: 0 dist → fully transparent, at tolerance → unchanged
+      const ratio = dist / globalTolerance;
+      data[i + 3] = Math.round(a * ratio * ratio); // quadratic fade for clean edge
+    }
+  }
+
+  // --- Pass 2: Light-on-light suppression (extra sweep for white shirts) ---
+  if (isBrightFabric && lightSuppression) {
+    const lightThreshold = Math.min(245, fr * 0.97);
+    for (let i = 0; i < data.length; i += 4) {
+      const a = data[i + 3];
+      if (a < 10) continue;
+      const r = data[i], g = data[i + 1], b = data[i + 2];
+      // Kill near-white pixels that survived pass 1 but are still remnant fabric
+      const isNearWhite = r > lightThreshold && g > lightThreshold && b > lightThreshold;
+      if (isNearWhite) {
+        // Soft fade: the whiter the pixel, the more transparent it becomes
+        const whiteness = Math.min(r, g, b) / 255;
+        data[i + 3] = Math.round(a * (1 - whiteness * 0.85));
+      }
+    }
+  }
+
+  // --- Pass 3: Neighbour-aware fringe erosion ---
+  // Pixels that are semi-transparent AND mostly surrounded by transparent
+  // neighbours are fringe artifacts — eliminate them
+  for (let sweep = 0; sweep < fringeSweeps; sweep++) {
+    const copy = new Uint8ClampedArray(data); // work on snapshot
+    for (let y = 1; y < h - 1; y++) {
+      for (let x = 1; x < w - 1; x++) {
+        const idx = (y * w + x) * 4;
+        const a = copy[idx + 3];
+        if (a < 5 || a > 220) continue; // skip transparent & solid
+
+        // Count transparent neighbours (4-connected)
+        const nTop    = copy[((y - 1) * w + x) * 4 + 3];
+        const nBottom = copy[((y + 1) * w + x) * 4 + 3];
+        const nLeft   = copy[(y * w + (x - 1)) * 4 + 3];
+        const nRight  = copy[(y * w + (x + 1)) * 4 + 3];
+        const transparentNeighbours = [nTop, nBottom, nLeft, nRight].filter(v => v < 30).length;
+
+        if (transparentNeighbours >= 3) {
+          // Isolated semi-transparent fringe — fade to transparent
+          data[idx + 3] = Math.round(a * 0.15);
+        } else if (transparentNeighbours === 2) {
+          data[idx + 3] = Math.round(a * 0.45);
+        }
+      }
+    }
+  }
+
+  ctx.putImageData(imgData, 0, 0);
+  return canvas;
+}
+
+
+/**
  * Extract artwork from a t-shirt photo:
  * 1. Crop to central artwork area (eliminating collar, sleeves, hems)
  * 2. Remove background fabric color via flood fill or global key
@@ -228,7 +325,17 @@ export function extractArtwork(imageSrc, options = {}) {
       ctx.clearRect(0, 0, 2, cropH);
       ctx.clearRect(cropW - 2, 0, 2, cropH);
 
-      // 6. Auto-trim transparent empty space
+      // 6. Post-process: remove residual fabric-colored pixels (halo fix)
+      // Detects if fabric is light (white shirt) and runs aggressive white suppression
+      const fabricLum = 0.299 * tr + 0.587 * tg + 0.114 * tb;
+      const isBright = fabricLum > 200;
+      removeFabricFringe(canvas, [tr, tg, tb], {
+        globalTolerance: isBright ? 45 : 30,  // more aggressive for white shirts
+        fringeSweeps: isBright ? 3 : 1,
+        lightSuppression: isBright,
+      });
+
+      // 7. Auto-trim transparent empty space
       const finalCanvas = autoTrim ? autoTrimTransparent(canvas) : canvas;
       resolve(finalCanvas.toDataURL('image/png'));
     };
