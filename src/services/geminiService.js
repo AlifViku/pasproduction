@@ -10,11 +10,12 @@
 const GEMINI_STORAGE_KEY = 'pas_gemini_api_key';
 const GEMINI_MODEL_STORAGE_KEY = 'pas_gemini_model';
 
-// Supported Flash models
+// Supported Flash models available on Gemini API
 export const SUPPORTED_MODELS = [
-  { id: 'gemini-2.0-flash', name: 'Gemini 2.0 Flash (Direkomendasikan - Cepat & Cerdas)' },
-  { id: 'gemini-1.5-flash', name: 'Gemini 1.5 Flash (Stabil - Kuota Gratis Besar)' },
-  { id: 'gemini-2.5-flash', name: 'Gemini 2.5 Flash (Eksperimental)' }
+  { id: 'gemini-3.5-flash', name: 'Gemini 3.5 Flash (Aktif & Direkomendasikan - Sangat Cepat)' },
+  { id: 'gemini-3-flash-preview', name: 'Gemini 3 Flash Preview (Cepat & Stabil)' },
+  { id: 'gemini-3.8-flash', name: 'Gemini 3.8 Flash (Model Terbaru)' },
+  { id: 'gemini-flash-latest', name: 'Gemini Flash Latest' }
 ];
 
 export function getGeminiApiKey() {
@@ -30,7 +31,7 @@ export function setGeminiApiKey(key) {
 }
 
 export function getSelectedModel() {
-  return localStorage.getItem(GEMINI_MODEL_STORAGE_KEY) || 'gemini-2.0-flash';
+  return localStorage.getItem(GEMINI_MODEL_STORAGE_KEY) || 'gemini-3.5-flash';
 }
 
 export function setSelectedModel(modelId) {
@@ -59,7 +60,13 @@ async function callGeminiApi({ prompt, imageBase64 = null, jsonSchema = null, mo
   }
 
   const primaryModel = model || getSelectedModel();
-  const modelsToTry = [primaryModel, 'gemini-1.5-flash', 'gemini-2.0-flash'].filter((v, i, a) => a.indexOf(v) === i);
+  const modelsToTry = [
+    primaryModel,
+    'gemini-3.5-flash',
+    'gemini-3-flash-preview',
+    'gemini-3.8-flash',
+    'gemini-flash-latest'
+  ].filter((v, i, a) => a.indexOf(v) === i);
 
   let lastError = null;
 
