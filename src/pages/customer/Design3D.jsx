@@ -365,6 +365,7 @@ export default function Design3D() {
   const [oneClickStatusText, setOneClickStatusText] = useState('');
   const [oneClickResult, setOneClickResult] = useState(null);
   const [oneClickError, setOneClickError] = useState('');
+  const [oneClickSide, setOneClickSide] = useState('front'); // 'front' | 'back'
 
   const handleOneClickMockupUpload = async (e) => {
     const file = e.target.files?.[0];
@@ -392,14 +393,20 @@ export default function Design3D() {
 
       setOneClickStatusText('Menerapkan desain ke kaos 3D...');
 
-      // 1. Langsung pasang hasil artwork bersih ke model 3D
-      setFullDesignFront(result.cleanPng);
-      setRawOriginalDesignFront(result.cleanPng);
-      setUploadMode('designFront');
-      setViewMode('front');
+      // Terapkan ke sisi yang dipilih user (depan atau belakang)
+      if (oneClickSide === 'back') {
+        setFullDesignBack(result.cleanPng);
+        setUploadMode('designBack');
+        setViewMode('back');
+      } else {
+        setFullDesignFront(result.cleanPng);
+        setRawOriginalDesignFront(result.cleanPng);
+        setUploadMode('designFront');
+        setViewMode('front');
+      }
       setResetTrigger(r => r + 1);
 
-      // 2. Samakan warna kain kaos 3D dengan warna baju asli
+      // Samakan warna kain kaos 3D dengan warna baju asli
       if (result.fabricColor) {
         setColor(result.fabricColor);
       }
@@ -653,9 +660,38 @@ export default function Design3D() {
                   </span>
                 </div>
 
-                <p className="text-[11px] text-purple-100 leading-snug mb-3">
+                <p className="text-[11px] text-purple-100 leading-snug mb-2">
                   Punya foto kaos / mockup jadi? Unggah di sini, AI akan membuang kain bajunya dan <strong>langsung menempelkan desainnya ke kaos 3D</strong> ini!
                 </p>
+
+                {/* Sisi Baju Selector */}
+                <div className="flex items-center gap-2 mb-3">
+                  <span className="text-[10px] text-purple-200 font-bold whitespace-nowrap">Sisi baju:</span>
+                  <div className="flex flex-1 bg-white/15 rounded-lg p-0.5 gap-0.5">
+                    <button
+                      type="button"
+                      onClick={() => setOneClickSide('front')}
+                      className={`flex-1 py-1 text-[10px] font-extrabold rounded-md transition-all ${
+                        oneClickSide === 'front'
+                          ? 'bg-white text-purple-800 shadow'
+                          : 'text-white/80 hover:text-white'
+                      }`}
+                    >
+                      👕 Depan
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setOneClickSide('back')}
+                      className={`flex-1 py-1 text-[10px] font-extrabold rounded-md transition-all ${
+                        oneClickSide === 'back'
+                          ? 'bg-white text-purple-800 shadow'
+                          : 'text-white/80 hover:text-white'
+                      }`}
+                    >
+                      🔄 Belakang
+                    </button>
+                  </div>
+                </div>
 
                 <label className="block bg-white hover:bg-purple-50 text-purple-900 font-extrabold text-xs py-2.5 px-3 rounded-xl text-center cursor-pointer shadow-md transition-all active:scale-[0.98]">
                   {isOneClickExtracting ? (
@@ -706,7 +742,7 @@ export default function Design3D() {
 
                     <button
                       type="button"
-                      onClick={() => openExtractor(oneClickResult.originalImage, 'designFront')}
+                      onClick={() => openExtractor(oneClickResult.originalImage, oneClickSide === 'back' ? 'designBack' : 'designFront')}
                       className="w-full text-center py-1.5 bg-white/20 hover:bg-white/30 text-white font-bold text-[10px] rounded-lg transition-colors flex items-center justify-center gap-1"
                     >
                       ✏️ Sesuaikan Batas / Toleransi Potong
