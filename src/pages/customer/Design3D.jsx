@@ -7,6 +7,7 @@ import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, Sparkles, Key, Check, AlertCircle } from 'lucide-react';
 import DesignExtractorModal from '../../components/ui/DesignExtractorModal';
 import GeminiKeyModal from '../../components/ui/GeminiKeyModal';
+import DesignColorCustomizer from '../../components/ui/DesignColorCustomizer';
 import { generateGraphicWithGemini, getOutfitFashionCritique, getGeminiApiKey, processFinishedMockupToDecal } from '../../services/geminiService';
 import swatchIcon from '../../assets/swatch.png';
 import fileIcon from '../../assets/file.png';
@@ -255,6 +256,10 @@ export default function Design3D() {
   const [fullDesignFrontFlipX, setFullDesignFrontFlipX] = useState(false);
   const [fullDesignBackFlipX, setFullDesignBackFlipX] = useState(false);
 
+  // Unmodified base designs for color resetting
+  const [rawOriginalLogo, setRawOriginalLogo] = useState(null);
+  const [rawOriginalDesignFront, setRawOriginalDesignFront] = useState(null);
+
   // Extractor Modal (Background Remover & Cropper) State
   const [extractorModal, setExtractorModal] = useState({
     isOpen: false,
@@ -274,8 +279,10 @@ export default function Design3D() {
   const handleApplyExtractedDesign = (extractedDataUrl) => {
     if (extractorModal.targetType === 'logo') {
       setLogoImage(extractedDataUrl);
+      setRawOriginalLogo(extractedDataUrl);
     } else if (extractorModal.targetType === 'designFront') {
       setFullDesignFront(extractedDataUrl);
+      setRawOriginalDesignFront(extractedDataUrl);
     } else if (extractorModal.targetType === 'designBack') {
       setFullDesignBack(extractedDataUrl);
     }
@@ -327,6 +334,7 @@ export default function Design3D() {
   const handleApplyAIGeneratedToShirt = () => {
     if (!generatedAIData?.dataUrl) return;
     setFullDesignFront(generatedAIData.dataUrl);
+    setRawOriginalDesignFront(generatedAIData.dataUrl);
     setUploadMode('designFront');
     if (generatedAIData.suggestedShirtColor) {
       setColor(generatedAIData.suggestedShirtColor);
@@ -386,6 +394,7 @@ export default function Design3D() {
 
       // 1. Langsung pasang hasil artwork bersih ke model 3D
       setFullDesignFront(result.cleanPng);
+      setRawOriginalDesignFront(result.cleanPng);
       setUploadMode('designFront');
       setViewMode('front');
       setResetTrigger(r => r + 1);
@@ -432,6 +441,7 @@ export default function Design3D() {
     if (file) {
       const url = URL.createObjectURL(file);
       setLogoImage(url);
+      setRawOriginalLogo(url);
       openExtractor(url, 'logo');
     }
   };
@@ -454,6 +464,7 @@ export default function Design3D() {
     if (file) {
       const url = URL.createObjectURL(file);
       setFullDesignFront(url);
+      setRawOriginalDesignFront(url);
       openExtractor(url, 'designFront');
     }
   };
@@ -778,6 +789,14 @@ export default function Design3D() {
                         <Sparkles className="w-3.5 h-3.5" /> Ekstrak Desain (Hapus Kaos)
                       </button>
 
+                      {/* Design Color & Contrast Customizer */}
+                      <DesignColorCustomizer
+                        currentImage={logoImage}
+                        originalImage={rawOriginalLogo || logoImage}
+                        onUpdateImage={(newImg) => setLogoImage(newImg)}
+                        shirtColor={color}
+                      />
+
                       <p className="text-[11px] text-blue-600 font-medium">
                         💡 Klik baju pada model 3D untuk memindahkan posisi logo
                       </p>
@@ -836,6 +855,14 @@ export default function Design3D() {
                       >
                         <Sparkles className="w-3.5 h-3.5" /> Ekstrak Desain (Hapus Kaos)
                       </button>
+
+                      {/* Design Color & Contrast Customizer */}
+                      <DesignColorCustomizer
+                        currentImage={fullDesignFront}
+                        originalImage={rawOriginalDesignFront || fullDesignFront}
+                        onUpdateImage={(newImg) => setFullDesignFront(newImg)}
+                        shirtColor={color}
+                      />
 
                       <div className="space-y-2 pt-1 border-t border-gray-100">
                         <div>

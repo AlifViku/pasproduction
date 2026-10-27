@@ -233,3 +233,284 @@ export function extractArtwork(imageSrc, options = {}) {
     img.src = imageSrc;
   });
 }
+
+/**
+ * Helper to convert HEX to RGB array
+ */
+export function hexToRgb(hex) {
+  if (!hex || typeof hex !== 'string') return [255, 255, 255];
+  const clean = hex.replace('#', '').trim();
+  if (clean.length === 3) {
+    const r = parseInt(clean[0] + clean[0], 16) || 255;
+    const g = parseInt(clean[1] + clean[1], 16) || 255;
+    const b = parseInt(clean[2] + clean[2], 16) || 255;
+    return [r, g, b];
+  }
+  const num = parseInt(clean, 16);
+  if (isNaN(num)) return [255, 255, 255];
+  return [(num >> 16) & 255, (num >> 8) & 255, num & 255];
+}
+
+/**
+ * Helper to convert RGB to HEX string
+ */
+export function rgbToHex(r, g, b) {
+  const toHex = (c) => Math.min(255, Math.max(0, Math.round(c))).toString(16).padStart(2, '0');
+  return `#${toHex(r)}${toHex(g)}${toHex(b)}`;
+}
+
+/**
+ * Approximate color name helper
+ */
+function getApproxColorName(r, g, b) {
+  const max = Math.max(r, g, b);
+  const min = Math.min(r, g, b);
+  const diff = max - min;
+  const lum = 0.299 * r + 0.587 * g + 0.114 * b;
+
+  if (lum < 35) return 'Hitam / Gelap';
+  if (lum > 225 && diff < 25) return 'Putih / Terang';
+  if (diff < 20) return 'Abu-abu';
+  if (r > 160 && g < 80 && b < 80) return 'Merah';
+  if (r > 180 && g > 150 && b < 80) return 'Kuning / Emas';
+  if (g > 150 && r < 120 && b > 140) return 'Tosca / Cyan';
+  if (g > 140 && r < 100 && b < 100) return 'Hijau';
+  if (b > 160 && r < 100) return 'Biru';
+  if (r > 140 && b > 140 && g < 100) return 'Ungu / Magenta';
+  return 'Warna Aksen';
+}
+
+/**
+ * 5. Extract dominant colors from transparent artwork
+ */
+export function extractImagePalette(imageSrc, maxColors = 7) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      const w = (canvas.width = Math.min(img.naturalWidth || img.width, 240));
+      const h = (canvas.height = Math.min(img.naturalHeight || img.height, 240));
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(img, 0, 0, w, h);
+
+      const data = ctx.getImageData(0, 0, w, h).data;
+      const clusters = [];
+
+      for (let i = 0; i < data.length; i += 16) {
+        const a = data[i + 3];
+        if (a < 90) continue; // Skip transparent background
+
+        const r = data[i];
+        const g = data[i + 1];
+        const b = data[i + 2];
+
+        // Find matching cluster
+        let matched = false;
+        for (const cl of clusters) {
+          if (getColorDistance(r, g, b, cl.r, cl.g, cl.b) < 32) {
+            cl.count++;
+            cl.rSum += r;
+            cl.gSum += g;
+            cl.bSum += b;
+            matched = true;
+            break;
+          }
+        }
+
+        if (!matched && clusters.length < 30) {
+          clusters.push({
+            r, g, b,
+            rSum: r, gSum: g, bSum: b,
+            count: 1
+          });
+        }
+      }
+
+      // Compute cluster averages and sort by frequency
+      const palette = clusters
+        .map((cl) => {
+          const rAvg = Math.round(cl.rSum / cl.count);
+          const gAvg = Math.round(cl.gSum / cl.count);
+          const bAvg = Math.round(cl.bSum / cl.count);
+          return {
+            hex: rgbToHex(rAvg, gAvg, bAvg),
+            rgb: [rAvg, gAvg, bAvg],
+            count: cl.count,
+            name: getApproxColorName(rAvg, gAvg, bAvg)
+          };
+        })
+        .sort((a, b) => b.count - a.count)
+        .slice(0, maxColors);
+
+      resolve(palette);
+    };
+    img.onerror = reject;
+    img.src = imageSrc;
+  });
+}
+
+/**
+ * 6. Replace a specific color in an artwork with a new color
+ * Preserves smooth shading and alpha transparency!
+ */
+export function replaceColorInImage(imageSrc, sourceHexOrRgb, targetHexOrRgb, tolerance = 42) {
+  return new Promise((resolve, reject) => {
+    const sRgb = Array.isArray(sourceHexOrRgb) ? sourceHexOrRgb : hexToRgb(sourceHexOrRgb);
+    const tRgb = Array.isArray(targetHexOrRgb) ? targetHexOrRgb : hexToRgb(targetHexOrRgb);
+
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      canvas.width = img.naturalWidth || img.width;
+      canvas.height = img.naturalHeight || img.height;
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(img, 0, 0);
+
+      const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+      const data = imgData.data;
+
+      const [sr, sg, sb] = sRgb;
+      const [tr, tg, tb] = tRgb;
+      const sourceLum = 0.299 * sr + 0.587 * sg + 0.114 * sb || 1;
+
+      for (let i = 0; i < data.length; i += 4) {
+        const a = data[i + 3];
+        if (a < 20) continue;
+
+        const r = data[i];
+        const g = data[i + 1];
+        const b = data[i + 2];
+
+        const dist = getColorDistance(r, g, b, sr, sg, sb);
+        if (dist <= tolerance) {
+          // Shading ratio to preserve highlights/shadows
+          const curLum = 0.299 * r + 0.587 * g + 0.114 * b;
+          const ratio = Math.max(0.2, Math.min(1.8, curLum / sourceLum));
+
+          // Feather blend on edges
+          const blend = 1 - Math.min(1, dist / tolerance);
+
+          const finalR = Math.min(255, Math.round(tr * ratio));
+          const finalG = Math.min(255, Math.round(tg * ratio));
+          const finalB = Math.min(255, Math.round(tb * ratio));
+
+          data[i] = Math.round(r * (1 - blend) + finalR * blend);
+          data[i + 1] = Math.round(g * (1 - blend) + finalG * blend);
+          data[i + 2] = Math.round(b * (1 - blend) + finalB * blend);
+        }
+      }
+
+      ctx.putImageData(imgData, 0, 0);
+      resolve(canvas.toDataURL('image/png'));
+    };
+    img.onerror = reject;
+    img.src = imageSrc;
+  });
+}
+
+/**
+ * 7. Add Contour Outline / Underbase Stroke around transparent graphic
+ * Ensures graphic pops on ANY shirt color!
+ */
+export function addContourOutline(imageSrc, options = {}) {
+  const {
+    strokeColor = '#ffffff',
+    thickness = 4,
+  } = options;
+
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.onload = () => {
+      const origW = img.naturalWidth || img.width;
+      const origH = img.naturalHeight || img.height;
+
+      // Add padding around canvas so outline is never clipped
+      const pad = Math.max(8, thickness * 3);
+      const w = origW + pad * 2;
+      const h = origH + pad * 2;
+
+      // 1. Create solid silhouette of original image
+      const silCanvas = document.createElement('canvas');
+      silCanvas.width = origW;
+      silCanvas.height = origH;
+      const silCtx = silCanvas.getContext('2d');
+      silCtx.drawImage(img, 0, 0);
+      silCtx.globalCompositeOperation = 'source-in';
+      silCtx.fillStyle = strokeColor;
+      silCtx.fillRect(0, 0, origW, origH);
+
+      // 2. Main target canvas with stroke expanded radially
+      const canvas = document.createElement('canvas');
+      canvas.width = w;
+      canvas.height = h;
+      const ctx = canvas.getContext('2d');
+
+      // Radial multi-draw stroke for solid, smooth contour
+      const steps = 16;
+      for (let s = 1; s <= thickness; s += 1.5) {
+        for (let i = 0; i < steps; i++) {
+          const angle = (i * Math.PI * 2) / steps;
+          const dx = Math.cos(angle) * s;
+          const dy = Math.sin(angle) * s;
+          ctx.drawImage(silCanvas, pad + dx, pad + dy);
+        }
+      }
+
+      // 3. Draw original crisp image on top
+      ctx.drawImage(img, pad, pad);
+
+      resolve(canvas.toDataURL('image/png'));
+    };
+    img.onerror = reject;
+    img.src = imageSrc;
+  });
+}
+
+/**
+ * 8. Invert dark/light colors (Quick contrast fix)
+ */
+export function invertDarkAndLight(imageSrc) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      canvas.width = img.naturalWidth || img.width;
+      canvas.height = img.naturalHeight || img.height;
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(img, 0, 0);
+
+      const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+      const data = imgData.data;
+
+      for (let i = 0; i < data.length; i += 4) {
+        const a = data[i + 3];
+        if (a < 30) continue;
+
+        const r = data[i];
+        const g = data[i + 1];
+        const b = data[i + 2];
+        const lum = 0.299 * r + 0.587 * g + 0.114 * b;
+
+        // Invert near-black to white, or near-white to black
+        if (lum < 60) {
+          data[i] = 250;
+          data[i + 1] = 250;
+          data[i + 2] = 250;
+        } else if (lum > 200 && Math.abs(r - g) < 25 && Math.abs(g - b) < 25) {
+          data[i] = 18;
+          data[i + 1] = 18;
+          data[i + 2] = 18;
+        }
+      }
+
+      ctx.putImageData(imgData, 0, 0);
+      resolve(canvas.toDataURL('image/png'));
+    };
+    img.onerror = reject;
+    img.src = imageSrc;
+  });
+}
