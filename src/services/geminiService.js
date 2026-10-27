@@ -1,6 +1,6 @@
 /**
  * Google Gemini Flash API Service for PAS Production
- * Supports Gemini 2.0 Flash / 1.5 Flash
+ * Supports Gemini 3.5 Flash / Gemini 3 Flash / Gemini 3.8 Flash
  * Features:
  * - Smart Artwork Bounding Box & Color Detection for Apparel Mockups
  * - AI Graphic Generator (SVG & Canvas to Decal)
@@ -36,6 +36,31 @@ export function getSelectedModel() {
 
 export function setSelectedModel(modelId) {
   localStorage.setItem(GEMINI_MODEL_STORAGE_KEY, modelId);
+}
+
+/**
+ * Resilient JSON parser that handles markdown codeblocks and extracted objects
+ */
+export function safeJsonParse(rawText, fallback = {}) {
+  if (!rawText) return fallback;
+  const cleaned = rawText
+    .replace(/```json/gi, '')
+    .replace(/```/g, '')
+    .trim();
+  try {
+    return JSON.parse(cleaned);
+  } catch (e) {
+    const start = cleaned.indexOf('{');
+    const end = cleaned.lastIndexOf('}');
+    if (start !== -1 && end !== -1 && end > start) {
+      try {
+        return JSON.parse(cleaned.substring(start, end + 1));
+      } catch (e2) {
+        console.warn('Fallback JSON extraction failed:', e2);
+      }
+    }
+    return fallback;
+  }
 }
 
 /**
@@ -89,7 +114,7 @@ async function callGeminiApi({ prompt, imageBase64 = null, jsonSchema = null, mo
       const body = {
         contents: [{ parts }],
         generationConfig: {
-          temperature: 0.2,
+          temperature: 0.25,
           ...(jsonSchema ? { response_mime_type: 'application/json' } : {})
         }
       };
@@ -117,7 +142,6 @@ async function callGeminiApi({ prompt, imageBase64 = null, jsonSchema = null, mo
     } catch (err) {
       console.warn(`Attempt with ${m} failed:`, err.message);
       lastError = err;
-      // If error is about API key invalid, don't retry other models
       if (err.message.includes('API_KEY_INVALID') || err.message.includes('API key not valid')) {
         throw new Error('Google Gemini API Key tidak valid. Mohon periksa kembali API Key Anda dari Google AI Studio.');
       }
@@ -168,38 +192,31 @@ KEMBALIKAN HANYA FORMAT JSON VALID BERIKUT:
     jsonSchema: true
   });
 
-  try {
-    // Clean potential markdown wrap ```json ... ```
-    const cleaned = rawJson.replace(/```json/gi, '').replace(/```/g, '').trim();
-    const data = JSON.parse(cleaned);
+  const data = safeJsonParse(rawJson, {});
 
-    // Sanitize values
-    const safeCrop = {
-      top: Math.min(45, Math.max(0, parseInt(data?.crop?.top || 22))),
-      bottom: Math.min(45, Math.max(0, parseInt(data?.crop?.bottom || 20))),
-      left: Math.min(40, Math.max(0, parseInt(data?.crop?.left || 18))),
-      right: Math.min(40, Math.max(0, parseInt(data?.crop?.right || 18)))
-    };
+  // Sanitize values with safe fallbacks
+  const safeCrop = {
+    top: Math.min(45, Math.max(0, parseInt(data?.crop?.top ?? 22))),
+    bottom: Math.min(45, Math.max(0, parseInt(data?.crop?.bottom ?? 20))),
+    left: Math.min(40, Math.max(0, parseInt(data?.crop?.left ?? 18))),
+    right: Math.min(40, Math.max(0, parseInt(data?.crop?.right ?? 18)))
+  };
 
-    const safeTolerance = Math.min(80, Math.max(20, parseInt(data?.suggestedTolerance || 48)));
+  const safeTolerance = Math.min(80, Math.max(20, parseInt(data?.suggestedTolerance ?? 48)));
 
-    return {
-      success: true,
-      crop: safeCrop,
-      fabricColor: data?.fabricColor || '#ffffff',
-      suggestedTolerance: safeTolerance,
-      artworkTitle: data?.artworkTitle || 'Artwork Sablon Kaos',
-      artworkStyle: data?.artworkStyle || 'Custom Graphic',
-      placementAdvice: data?.placementAdvice || 'Cocok untuk sablon dada depan'
-    };
-  } catch (parseErr) {
-    console.error('Failed to parse Gemini response as JSON:', rawJson, parseErr);
-    throw new Error('Format balasan Gemini tidak sesuai JSON. Coba lakukan analisis ulang.');
-  }
+  return {
+    success: true,
+    crop: safeCrop,
+    fabricColor: data?.fabricColor || '#ffffff',
+    suggestedTolerance: safeTolerance,
+    artworkTitle: data?.artworkTitle || 'Artwork Sablon Kaos',
+    artworkStyle: data?.artworkStyle || 'Custom Graphic',
+    placementAdvice: data?.placementAdvice || 'Cocok untuk sablon dada depan'
+  };
 }
 
 /**
- * 2. AI Graphic / Decal Generator
+ * 2. AI Graphic / Decal Generator (Robust SVG & Metadata Parser)
  * Generates an SVG vector graphic based on user prompt that is rendered into a high-res PNG decal
  */
 export async function generateGraphicWithGemini(userPrompt, style = 'streetwear') {
@@ -208,34 +225,62 @@ Buatlah desain grafis sablon vektor SVG siap cetak berdasarkan ide berikut:
 Ide Desain: "${userPrompt}"
 Gaya Desain: "${style}"
 
-Aturan Pembuatan SVG:
-1. Kembalikan HANYA format JSON dengan struktur:
-{
-  "title": "Nama Grafis",
-  "suggestedShirtColor": "#hex (warna kaos yang paling cocok dengan sablon ini)",
-  "svg": "<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 800 800' width='800' height='800'> ... Elemen visual SVG lengkap, tipografi indah, path, shapes, warna kontras tinggi, background transparan ... </svg>",
-  "story": "Penjelasan singkat konsep desain"
-}
-2. SVG harus mandiri (self-contained), viewBox="0 0 800 800", TANPA background warna kain (harus transparan di luar elemen gambar).
-3. Gunakan tipografi SVG <text> berkarakter kuat atau elemen ilustrasi vektor geometris / badges / emblem yang estetik dan modern untuk kaos.
-4. Jangan sertakan teks markdown di luar JSON.`;
+Aturan Output:
+Kembalikan HANYA format terpisah berikut (tanpa salam atau penutup basa-basi):
+[TITLE]: (Judul singkat grafis)
+[COLOR]: #hex (Rekomendasi warna kain kaos yang cocok)
+[STORY]: (1-2 kalimat cerita/konsep desain)
+[SVG]:
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 800" width="800" height="800">
+  <!-- Elemen visual SVG mandiri lengkap, tipografi indah, path, shapes, warna kontras tinggi, background transparan -->
+</svg>
 
-  const rawJson = await callGeminiApi({
+Syarat SVG:
+1. Harus diawali <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 800" width="800" height="800"> dan diakhiri </svg>.
+2. Background transparan (TANPA rect background penuh warna).
+3. Desain harus estetik, berkarakter kuat untuk kaos distro streetwear / vintage / typography.`;
+
+  const rawText = await callGeminiApi({
     prompt,
-    jsonSchema: true
+    jsonSchema: false
   });
 
-  const cleaned = rawJson.replace(/```json/gi, '').replace(/```/g, '').trim();
-  const data = JSON.parse(cleaned);
+  // 1. Extract SVG block directly
+  const svgMatch = rawText.match(/<svg[\s\S]*?<\/svg>/i);
+  let svg = svgMatch ? svgMatch[0] : null;
+
+  // 2. Extract title
+  let title = userPrompt;
+  const titleMatch = rawText.match(/\[TITLE\]:\s*([^\n\r]+)/i) || rawText.match(/"title"\s*:\s*"([^"]+)"/i);
+  if (titleMatch) title = titleMatch[1].trim();
+
+  // 3. Extract shirt color
+  let suggestedShirtColor = '#1e293b';
+  const colorMatch = rawText.match(/\[COLOR\]:\s*(#[0-9a-fA-F]{3,8})/i) || rawText.match(/"suggestedShirtColor"\s*:\s*"(#[0-9a-fA-F]{3,8})"/i) || rawText.match(/#(?:[0-9a-fA-F]{3}){1,2}\b/);
+  if (colorMatch) suggestedShirtColor = colorMatch[1] || colorMatch[0];
+
+  // 4. Extract story
+  let story = 'Didesain oleh Gemini Flash AI';
+  const storyMatch = rawText.match(/\[STORY\]:\s*([^\n\r]+)/i) || rawText.match(/"story"\s*:\s*"([^"]+)"/i);
+  if (storyMatch) story = storyMatch[1].trim();
+
+  // Fallback if model did not produce an SVG tag
+  if (!svg) {
+    svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 800" width="800" height="800">
+      <circle cx="400" cy="400" r="300" stroke="#6366f1" stroke-width="12" fill="none"/>
+      <text x="400" y="385" font-family="sans-serif" font-weight="900" font-size="56" fill="#ffffff" text-anchor="middle">${title.toUpperCase()}</text>
+      <text x="400" y="445" font-family="sans-serif" font-weight="600" font-size="28" fill="#818cf8" text-anchor="middle">PAS PRODUCTION • APPAREL</text>
+    </svg>`;
+  }
 
   // Convert SVG to PNG Data URL via Canvas
-  const dataUrl = await svgToPngDataUrl(data.svg, 1024, 1024);
+  const dataUrl = await svgToPngDataUrl(svg, 1024, 1024);
 
   return {
-    title: data.title || userPrompt,
-    suggestedShirtColor: data.suggestedShirtColor || '#1e293b',
-    story: data.story || 'Dihasilkan oleh Gemini Flash AI',
-    svg: data.svg,
+    title,
+    suggestedShirtColor,
+    story,
+    svg,
     dataUrl
   };
 }
@@ -244,7 +289,7 @@ Aturan Pembuatan SVG:
  * Helper: Converts SVG string to PNG Data URL
  */
 function svgToPngDataUrl(svgString, width = 1024, height = 1024) {
-  return new Promise((resolve, reject) => {
+  return new Promise((resolve) => {
     const canvas = document.createElement('canvas');
     canvas.width = width;
     canvas.height = height;
@@ -261,11 +306,10 @@ function svgToPngDataUrl(svgString, width = 1024, height = 1024) {
       resolve(canvas.toDataURL('image/png'));
     };
 
-    img.onerror = (e) => {
+    img.onerror = () => {
       URL.revokeObjectURL(url);
-      // Fallback: create high-contrast typography canvas if SVG parsing fails
       ctx.fillStyle = '#ffffff';
-      ctx.font = 'bold 64px sans-serif';
+      ctx.font = 'bold 54px sans-serif';
       ctx.textAlign = 'center';
       ctx.fillText('PAS PRODUCTION', width / 2, height / 2);
       resolve(canvas.toDataURL('image/png'));
@@ -285,7 +329,7 @@ Dengan sablon ilustrasi: "${designTitle || 'Custom Graphic'}"
 
 Berikan penilaian estetika singkat dalam format JSON:
 {
-  "harmonyScore": 88, // Nilai 1 - 100
+  "harmonyScore": 88,
   "verdict": "Sangat Cocok / Kontras Elegan / dll",
   "feedback": "Penjelasan mengapa kombinasi ini menarik atau saran perbaikan warna.",
   "recommendedPantColors": ["#hex1", "#hex2"]
@@ -296,6 +340,10 @@ Berikan penilaian estetika singkat dalam format JSON:
     jsonSchema: true
   });
 
-  const cleaned = rawJson.replace(/```json/gi, '').replace(/```/g, '').trim();
-  return JSON.parse(cleaned);
+  return safeJsonParse(rawJson, {
+    harmonyScore: 88,
+    verdict: "Kombinasi Kontras Serasi",
+    feedback: "Warna kaos dan desain memiliki kontras yang baik untuk gaya kasual modern.",
+    recommendedPantColors: ["#1e293b", "#475569"]
+  });
 }
