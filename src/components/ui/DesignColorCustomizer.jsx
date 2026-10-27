@@ -25,18 +25,21 @@ export default function DesignColorCustomizer({
     '#38bdf8', '#22c55e', '#a855f7', '#fb923c'
   ];
 
-  // Extract palette whenever currentImage changes
+  // Extract palette whenever currentImage changes; always reset selectedColor
   useEffect(() => {
-    if (!currentImage) return;
+    if (!currentImage) {
+      setPalette([]);
+      setSelectedColor(null);
+      return;
+    }
     let isCancelled = false;
 
     extractImagePalette(currentImage)
       .then((colors) => {
         if (!isCancelled) {
           setPalette(colors);
-          if (colors.length > 0 && !selectedColor) {
-            setSelectedColor(colors[0]);
-          }
+          // Always pick the first (most dominant) color after a fresh extract
+          setSelectedColor(colors.length > 0 ? colors[0] : null);
         }
       })
       .catch((err) => console.error('Failed to extract palette:', err));
@@ -60,6 +63,8 @@ export default function DesignColorCustomizer({
       onUpdateImage(updated);
     } catch (err) {
       console.error('Color swap error:', err);
+      // Show user-visible error (alert as fallback)
+      alert(`Gagal mengubah warna: ${err?.message || 'Coba upload ulang gambar.'}`);
     } finally {
       setIsProcessing(false);
     }

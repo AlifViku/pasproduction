@@ -114,7 +114,10 @@ export function extractArtwork(imageSrc, options = {}) {
 
   return new Promise((resolve, reject) => {
     const img = new Image();
-    img.crossOrigin = 'anonymous';
+    // Only set crossOrigin for external http/https URLs; blob: and data: don't need it
+    if (imageSrc && imageSrc.startsWith('http')) {
+      img.crossOrigin = 'anonymous';
+    }
     img.onload = () => {
       const origW = img.naturalWidth || img.width;
       const origH = img.naturalHeight || img.height;
@@ -286,7 +289,11 @@ function getApproxColorName(r, g, b) {
 export function extractImagePalette(imageSrc, maxColors = 7) {
   return new Promise((resolve, reject) => {
     const img = new Image();
-    img.crossOrigin = 'anonymous';
+    // Only set crossOrigin for external http/https URLs; blob: and data: don't need it
+    // and setting it on blob: URLs can cause CORS taint errors with getImageData()
+    if (imageSrc && imageSrc.startsWith('http')) {
+      img.crossOrigin = 'anonymous';
+    }
     img.onload = () => {
       const canvas = document.createElement('canvas');
       const w = (canvas.width = Math.min(img.naturalWidth || img.width, 240));
@@ -360,7 +367,10 @@ export function replaceColorInImage(imageSrc, sourceHexOrRgb, targetHexOrRgb, to
     const tRgb = Array.isArray(targetHexOrRgb) ? targetHexOrRgb : hexToRgb(targetHexOrRgb);
 
     const img = new Image();
-    img.crossOrigin = 'anonymous';
+    // Only set crossOrigin for external http/https URLs; blob: and data: don't need it
+    if (imageSrc && imageSrc.startsWith('http')) {
+      img.crossOrigin = 'anonymous';
+    }
     img.onload = () => {
       const canvas = document.createElement('canvas');
       canvas.width = img.naturalWidth || img.width;
@@ -422,7 +432,10 @@ export function addContourOutline(imageSrc, options = {}) {
 
   return new Promise((resolve, reject) => {
     const img = new Image();
-    img.crossOrigin = 'anonymous';
+    // Only set crossOrigin for external http/https URLs
+    if (imageSrc && imageSrc.startsWith('http')) {
+      img.crossOrigin = 'anonymous';
+    }
     img.onload = () => {
       const origW = img.naturalWidth || img.width;
       const origH = img.naturalHeight || img.height;
@@ -475,7 +488,10 @@ export function addContourOutline(imageSrc, options = {}) {
 export function invertDarkAndLight(imageSrc) {
   return new Promise((resolve, reject) => {
     const img = new Image();
-    img.crossOrigin = 'anonymous';
+    // Only set crossOrigin for external http/https URLs
+    if (imageSrc && imageSrc.startsWith('http')) {
+      img.crossOrigin = 'anonymous';
+    }
     img.onload = () => {
       const canvas = document.createElement('canvas');
       canvas.width = img.naturalWidth || img.width;
