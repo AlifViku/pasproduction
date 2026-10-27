@@ -7,7 +7,7 @@ import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, Sparkles, Key, Check, AlertCircle } from 'lucide-react';
 import DesignExtractorModal from '../../components/ui/DesignExtractorModal';
 import GeminiKeyModal from '../../components/ui/GeminiKeyModal';
-import { generateGraphicWithGemini, getOutfitFashionCritique, getGeminiApiKey } from '../../services/geminiService';
+import { generateGraphicWithGemini, getOutfitFashionCritique, getGeminiApiKey, processFinishedMockupToDecal } from '../../services/geminiService';
 import swatchIcon from '../../assets/swatch.png';
 import fileIcon from '../../assets/file.png';
 import aiIcon from '../../assets/ai.png';
@@ -351,6 +351,60 @@ export default function Design3D() {
       setIsCritiquing(false);
     }
   };
+
+  // One-Click Finished Mockup Extractor States & Handler
+  const [isOneClickExtracting, setIsOneClickExtracting] = useState(false);
+  const [oneClickStatusText, setOneClickStatusText] = useState('');
+  const [oneClickResult, setOneClickResult] = useState(null);
+  const [oneClickError, setOneClickError] = useState('');
+
+  const handleOneClickMockupUpload = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!getGeminiApiKey()) {
+      setShowGeminiKeyModal(true);
+      return;
+    }
+
+    setIsOneClickExtracting(true);
+    setOneClickError('');
+    setOneClickStatusText('Membaca file foto...');
+
+    try {
+      const reader = new FileReader();
+      const base64 = await new Promise((resolve, reject) => {
+        reader.onload = () => resolve(reader.result);
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+
+      setOneClickStatusText('Gemini AI mendeteksi sablon & warna kain baju...');
+      const result = await processFinishedMockupToDecal(base64);
+
+      setOneClickStatusText('Menerapkan desain ke kaos 3D...');
+
+      // 1. Langsung pasang hasil artwork bersih ke model 3D
+      setFullDesignFront(result.cleanPng);
+      setUploadMode('designFront');
+      setViewMode('front');
+      setResetTrigger(r => r + 1);
+
+      // 2. Samakan warna kain kaos 3D dengan warna baju asli
+      if (result.fabricColor) {
+        setColor(result.fabricColor);
+      }
+
+      setOneClickResult(result);
+    } catch (err) {
+      console.error('One-click extraction error:', err);
+      setOneClickError(err.message || 'Gagal mengekstrak desain dari foto baju.');
+    } finally {
+      setIsOneClickExtracting(false);
+      setOneClickStatusText('');
+      e.target.value = '';
+    }
+  };
   
   const saveDesign = useStore(state => state.saveDesign);
   const navigate = useNavigate();
@@ -498,6 +552,26 @@ export default function Design3D() {
           <ContactShadows position={[0, -1.8, 0]} opacity={0.5} scale={10} blur={2} far={3} />
           <OrbitControls makeDefault enablePan={false} minPolarAngle={Math.PI / 4} maxPolarAngle={Math.PI / 2} />
         </Canvas>
+
+        {/* Instant Extraction Overlay on 3D Canvas */}
+        {isOneClickExtracting && (
+          <div className="absolute inset-0 bg-black/40 backdrop-blur-xs flex items-center justify-center z-20 pointer-events-none">
+            <div className="bg-white/95 rounded-2xl p-5 shadow-2xl flex flex-col items-center gap-3 border border-purple-100 max-w-xs text-center animate-in zoom-in-95">
+              <div className="w-11 h-11 rounded-2xl bg-gradient-to-tr from-purple-600 via-indigo-600 to-pink-500 text-white flex items-center justify-center shadow-lg shadow-purple-500/30">
+                <Sparkles className="w-6 h-6 animate-spin" style={{ animationDuration: '3s' }} />
+              </div>
+              <div>
+                <h4 className="font-extrabold text-gray-900 text-sm">AI Sedang Mengekstrak Desain</h4>
+                <p className="text-xs text-purple-700 font-semibold mt-1">
+                  {oneClickStatusText || 'Menganalisis kain & memotong sablon...'}
+                </p>
+                <p className="text-[10px] text-gray-400 mt-1">
+                  Membuang kerah, jahitan & kain baju agar siap dipasang ke model 3D
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Top Right Controls */}
@@ -529,7 +603,7 @@ export default function Design3D() {
         </div>
 
         {/* Expanded Panel */}
-        <div className={`bg-white/85 backdrop-blur-xl ${activeTab === 'ai' ? 'w-80' : 'w-64'} max-h-[85vh] overflow-y-auto rounded-2xl shadow-xl border border-white/50 p-5 transition-all`}>
+        <div className={`bg-white/85 backdrop-blur-xl ${activeTab === 'ai' || activeTab === 'logo' ? 'w-80' : 'w-64'} max-h-[85vh] overflow-y-auto rounded-2xl shadow-xl border border-white/50 p-5 transition-all`}>
           {activeTab === 'color' && (
             <div className="flex flex-col gap-4">
               <div className="w-full">
@@ -551,6 +625,90 @@ export default function Design3D() {
           {activeTab === 'logo' && (
             <div className="space-y-4">
               <h3 className="font-bold text-gray-800">Unggah Gambar</h3>
+
+              {/* ⚡ One-Click Finished Mockup/Shirt AI Extractor Banner */}
+              <div className="bg-gradient-to-br from-indigo-600 via-purple-600 to-pink-600 rounded-2xl p-4 text-white shadow-lg shadow-purple-500/25 relative overflow-hidden">
+                <div className="flex items-center justify-between mb-1.5">
+                  <div className="flex items-center gap-1.5">
+                    <span className="p-1 rounded-lg bg-white/20 backdrop-blur-xs">
+                      <Sparkles className="w-4 h-4 text-yellow-300 animate-spin" style={{ animationDuration: '4s' }} />
+                    </span>
+                    <h4 className="font-black text-xs uppercase tracking-wider text-white">
+                      Ekstrak dari Foto Baju
+                    </h4>
+                  </div>
+                  <span className="text-[9px] bg-white/20 text-white font-black px-1.5 py-0.5 rounded-full">
+                    One-Click AI
+                  </span>
+                </div>
+
+                <p className="text-[11px] text-purple-100 leading-snug mb-3">
+                  Punya foto kaos / mockup jadi? Unggah di sini, AI akan membuang kain bajunya dan <strong>langsung menempelkan desainnya ke kaos 3D</strong> ini!
+                </p>
+
+                <label className="block bg-white hover:bg-purple-50 text-purple-900 font-extrabold text-xs py-2.5 px-3 rounded-xl text-center cursor-pointer shadow-md transition-all active:scale-[0.98]">
+                  {isOneClickExtracting ? (
+                    <div className="flex items-center justify-center gap-2 text-purple-700">
+                      <div className="w-3.5 h-3.5 border-2 border-purple-600 border-t-transparent rounded-full animate-spin"></div>
+                      <span className="truncate">{oneClickStatusText || 'Mengekstrak desain...'}</span>
+                    </div>
+                  ) : (
+                    <span className="flex items-center justify-center gap-1.5">
+                      📁 Upload Foto Baju Jadi (Auto-3D)
+                    </span>
+                  )}
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={handleOneClickMockupUpload}
+                    disabled={isOneClickExtracting}
+                    className="hidden"
+                  />
+                </label>
+
+                {oneClickError && (
+                  <div className="mt-2.5 p-2 bg-red-900/60 backdrop-blur-xs border border-red-300/40 rounded-xl text-[10px] text-red-100 flex items-center gap-1.5">
+                    <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                    <span>{oneClickError}</span>
+                  </div>
+                )}
+
+                {/* Success Card when Extracted */}
+                {oneClickResult && (
+                  <div className="mt-3 bg-black/30 backdrop-blur-md rounded-xl p-2.5 border border-white/20 text-[11px] space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="font-bold text-white truncate max-w-[150px]">
+                        {oneClickResult.artworkTitle}
+                      </span>
+                      <span className="text-[9px] bg-emerald-500/90 text-white font-black px-1.5 py-0.5 rounded-full">
+                        Terpasang di 3D ✓
+                      </span>
+                    </div>
+
+                    <div className="flex items-center justify-between text-[10px] text-purple-200">
+                      <span>Warna Baju Asli:</span>
+                      <div className="flex items-center gap-1">
+                        <span className="w-3 h-3 rounded-full border border-white/40 shadow-xs inline-block" style={{ backgroundColor: oneClickResult.fabricColor }} />
+                        <span className="font-mono text-white font-bold">{oneClickResult.fabricColor}</span>
+                      </div>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => openExtractor(oneClickResult.originalImage, 'designFront')}
+                      className="w-full text-center py-1.5 bg-white/20 hover:bg-white/30 text-white font-bold text-[10px] rounded-lg transition-colors flex items-center justify-center gap-1"
+                    >
+                      ✏️ Sesuaikan Batas / Toleransi Potong
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              <div className="relative flex py-1 items-center">
+                <div className="flex-grow border-t border-gray-200"></div>
+                <span className="flex-shrink mx-2 text-[10px] uppercase font-bold text-gray-400">Atau Upload Manual</span>
+                <div className="flex-grow border-t border-gray-200"></div>
+              </div>
 
               {/* Mode Selection Tabs */}
               <div className="grid grid-cols-2 gap-1 bg-gray-100 p-1 rounded-xl">

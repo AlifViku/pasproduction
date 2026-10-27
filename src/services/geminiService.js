@@ -7,6 +7,8 @@
  * - AI Fashion Stylist / Color Harmony Critique
  */
 
+import { extractArtwork } from '../utils/imageUtils';
+
 const GEMINI_STORAGE_KEY = 'pas_gemini_api_key';
 const GEMINI_MODEL_STORAGE_KEY = 'pas_gemini_model';
 
@@ -346,4 +348,53 @@ Berikan penilaian estetika singkat dalam format JSON:
     feedback: "Warna kaos dan desain memiliki kontras yang baik untuk gaya kasual modern.",
     recommendedPantColors: ["#1e293b", "#475569"]
   });
+}
+
+/**
+ * Convert HEX color to RGB array [r, g, b]
+ */
+export function hexToRgb(hex) {
+  if (!hex || typeof hex !== 'string') return [240, 240, 240];
+  const clean = hex.replace('#', '').trim();
+  if (clean.length === 3) {
+    const r = parseInt(clean[0] + clean[0], 16) || 240;
+    const g = parseInt(clean[1] + clean[1], 16) || 240;
+    const b = parseInt(clean[2] + clean[2], 16) || 240;
+    return [r, g, b];
+  }
+  const num = parseInt(clean, 16);
+  if (isNaN(num)) return [240, 240, 240];
+  return [(num >> 16) & 255, (num >> 8) & 255, num & 255];
+}
+
+/**
+ * 4. One-Click AI Extraction from Finished Shirt Photo/Mockup
+ * Automatically analyzes image, detects graphic & shirt fabric color,
+ * removes the shirt background, and outputs a clean transparent PNG ready for 3D decal!
+ */
+export async function processFinishedMockupToDecal(imageBase64) {
+  // 1. Analyze with Gemini Flash AI
+  const aiInfo = await extractArtworkWithGemini(imageBase64);
+
+  // 2. Perform background removal using detected fabricColor & crop
+  const targetRgb = hexToRgb(aiInfo.fabricColor);
+  const cleanPng = await extractArtwork(imageBase64, {
+    crop: aiInfo.crop,
+    tolerance: aiInfo.suggestedTolerance,
+    targetColor: targetRgb,
+    mode: 'flood',
+    removeWhiteOuter: true,
+    autoTrim: true
+  });
+
+  return {
+    cleanPng,
+    fabricColor: aiInfo.fabricColor,
+    artworkTitle: aiInfo.artworkTitle,
+    artworkStyle: aiInfo.artworkStyle,
+    placementAdvice: aiInfo.placementAdvice,
+    crop: aiInfo.crop,
+    suggestedTolerance: aiInfo.suggestedTolerance,
+    originalImage: imageBase64
+  };
 }
