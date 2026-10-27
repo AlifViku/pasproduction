@@ -4,8 +4,10 @@ import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { OrbitControls, Environment, ContactShadows, useGLTF, useTexture, Decal } from '@react-three/drei';
 import { useStore } from '../../store/useStore';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Sparkles, Wand2, Scissors } from 'lucide-react';
+import { ArrowLeft, Sparkles, Key, Check, AlertCircle } from 'lucide-react';
 import DesignExtractorModal from '../../components/ui/DesignExtractorModal';
+import GeminiKeyModal from '../../components/ui/GeminiKeyModal';
+import { generateGraphicWithGemini, getOutfitFashionCritique, getGeminiApiKey } from '../../services/geminiService';
 import swatchIcon from '../../assets/swatch.png';
 import fileIcon from '../../assets/file.png';
 import aiIcon from '../../assets/ai.png';
@@ -288,6 +290,67 @@ export default function Design3D() {
   const [textScale, setTextScale] = useState(0.2);
   const [textRotation, setTextRotation] = useState(0);
   const [textFlipX, setTextFlipX] = useState(false);
+
+  // Gemini AI Studio States
+  const [aiPrompt, setAiPrompt] = useState('');
+  const [aiStyle, setAiStyle] = useState('streetwear');
+  const [isGeneratingAI, setIsGeneratingAI] = useState(false);
+  const [generatedAIData, setGeneratedAIData] = useState(null);
+  const [aiError, setAiError] = useState('');
+  const [aiSubTab, setAiSubTab] = useState('generate'); // 'generate' | 'stylist'
+  const [aiCritique, setAiCritique] = useState(null);
+  const [isCritiquing, setIsCritiquing] = useState(false);
+  const [showGeminiKeyModal, setShowGeminiKeyModal] = useState(false);
+
+  const handleGenerateAIDesign = async () => {
+    if (!getGeminiApiKey()) {
+      setShowGeminiKeyModal(true);
+      return;
+    }
+    if (!aiPrompt.trim()) {
+      setAiError('Silakan ketik ide konsep desain terlebih dahulu.');
+      return;
+    }
+    setIsGeneratingAI(true);
+    setAiError('');
+    try {
+      const result = await generateGraphicWithGemini(aiPrompt.trim(), aiStyle);
+      setGeneratedAIData(result);
+    } catch (err) {
+      console.error('AI Generation Error:', err);
+      setAiError(err.message || 'Gagal menghasilkan desain dengan Gemini.');
+    } finally {
+      setIsGeneratingAI(false);
+    }
+  };
+
+  const handleApplyAIGeneratedToShirt = () => {
+    if (!generatedAIData?.dataUrl) return;
+    setFullDesignFront(generatedAIData.dataUrl);
+    setUploadMode('designFront');
+    if (generatedAIData.suggestedShirtColor) {
+      setColor(generatedAIData.suggestedShirtColor);
+    }
+  };
+
+  const handleRunAICritique = async () => {
+    if (!getGeminiApiKey()) {
+      setShowGeminiKeyModal(true);
+      return;
+    }
+    setIsCritiquing(true);
+    setAiError('');
+    try {
+      const title = generatedAIData?.title || (logoImage ? 'Custom Graphic' : 'Kaos Distro');
+      const critique = await getOutfitFashionCritique(color, title);
+      setAiCritique(critique);
+    } catch (err) {
+      console.error('AI Critique Error:', err);
+      setAiError(err.message || 'Gagal menganalisis harmoni warna.');
+    } finally {
+      setIsCritiquing(false);
+    }
+  };
   
   const saveDesign = useStore(state => state.saveDesign);
   const navigate = useNavigate();
@@ -466,7 +529,7 @@ export default function Design3D() {
         </div>
 
         {/* Expanded Panel */}
-        <div className="bg-white/80 backdrop-blur-xl w-64 rounded-2xl shadow-xl border border-white/50 p-5">
+        <div className={`bg-white/85 backdrop-blur-xl ${activeTab === 'ai' ? 'w-80' : 'w-64'} max-h-[85vh] overflow-y-auto rounded-2xl shadow-xl border border-white/50 p-5 transition-all`}>
           {activeTab === 'color' && (
             <div className="flex flex-col gap-4">
               <div className="w-full">
@@ -783,29 +846,249 @@ export default function Design3D() {
           )}
 
           {activeTab === 'ai' && (
-            <div className="space-y-4 text-center py-6">
-              <h3 className="font-bold text-gray-800">AI Design</h3>
-              <p className="text-sm text-gray-500">Fitur sedang dalam pengembangan.</p>
+            <div className="space-y-4">
+              {/* AI Studio Header */}
+              <div className="flex items-center justify-between pb-2 border-b border-gray-100">
+                <div className="flex items-center gap-1.5">
+                  <div className="w-6 h-6 rounded-lg bg-gradient-to-tr from-blue-600 to-purple-600 text-white flex items-center justify-center">
+                    <Sparkles className="w-3.5 h-3.5" />
+                  </div>
+                  <h3 className="font-extrabold text-xs text-gray-900">Gemini Flash AI</h3>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowGeminiKeyModal(true)}
+                  className="text-[10px] text-blue-600 hover:text-blue-800 font-bold flex items-center gap-1 bg-blue-50 px-2 py-1 rounded-md"
+                >
+                  <Key className="w-3 h-3" /> {getGeminiApiKey() ? 'API Key OK' : 'Atur Key'}
+                </button>
+              </div>
+
+              {/* Sub-tab Switcher */}
+              <div className="grid grid-cols-2 gap-1 bg-gray-100 p-1 rounded-xl text-xs font-semibold">
+                <button
+                  type="button"
+                  onClick={() => setAiSubTab('generate')}
+                  className={`py-1.5 rounded-lg transition-all ${aiSubTab === 'generate' ? 'bg-white shadow text-gray-900' : 'text-gray-500'}`}
+                >
+                  Buat Desain
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setAiSubTab('stylist')}
+                  className={`py-1.5 rounded-lg transition-all ${aiSubTab === 'stylist' ? 'bg-white shadow text-gray-900' : 'text-gray-500'}`}
+                >
+                  Harmoni Warna
+                </button>
+              </div>
+
+              {/* Sub-tab 1: AI Design Generator */}
+              {aiSubTab === 'generate' && (
+                <div className="space-y-3">
+                  <div>
+                    <label className="text-xs font-bold text-gray-700 block mb-1">
+                      Deskripsikan Ide Desain:
+                    </label>
+                    <textarea
+                      rows={3}
+                      value={aiPrompt}
+                      onChange={(e) => setAiPrompt(e.target.value)}
+                      placeholder="Contoh: Streetwear logo Japanese typography skull neon cyber..."
+                      className="w-full text-xs p-2.5 rounded-xl border border-gray-300 focus:ring-2 focus:ring-purple-500 resize-none bg-gray-50/50"
+                    />
+                  </div>
+
+                  {/* Preset prompt pills */}
+                  <div className="flex flex-wrap gap-1.5">
+                    {[
+                      'Streetwear Cyberpunk',
+                      'Vintage Coffee 1980',
+                      'Minimalist Mountain',
+                      'Bandung City Apparel'
+                    ].map((tag) => (
+                      <button
+                        key={tag}
+                        type="button"
+                        onClick={() => setAiPrompt(tag)}
+                        className="text-[10px] bg-purple-50 hover:bg-purple-100 text-purple-700 px-2 py-0.5 rounded-full font-medium transition-colors"
+                      >
+                        +{tag}
+                      </button>
+                    ))}
+                  </div>
+
+                  <div>
+                    <label className="text-xs font-bold text-gray-700 block mb-1">
+                      Gaya Visual:
+                    </label>
+                    <select
+                      value={aiStyle}
+                      onChange={(e) => setAiStyle(e.target.value)}
+                      className="w-full text-xs p-2 rounded-xl border border-gray-300 bg-white"
+                    >
+                      <option value="streetwear">Streetwear Distro</option>
+                      <option value="vintage">Vintage Retro 90s</option>
+                      <option value="minimalist">Minimalist Emblem / Badge</option>
+                      <option value="typography">Bold Typography Art</option>
+                      <option value="cyberpunk">Cyberpunk Futuristic</option>
+                    </select>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={handleGenerateAIDesign}
+                    disabled={isGeneratingAI}
+                    className="w-full py-2.5 px-3 rounded-xl bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white font-extrabold text-xs shadow-md shadow-indigo-500/20 flex items-center justify-center gap-2 transition-all disabled:opacity-50"
+                  >
+                    {isGeneratingAI ? (
+                      <>
+                        <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                        Gemini merancang grafis...
+                      </>
+                    ) : (
+                      <>
+                        <Sparkles className="w-3.5 h-3.5" />
+                        Generate dengan Gemini Flash
+                      </>
+                    )}
+                  </button>
+
+                  {aiError && (
+                    <div className="p-2 bg-red-50 text-red-600 rounded-lg text-[11px] flex items-center gap-1.5 border border-red-200">
+                      <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                      <span>{aiError}</span>
+                    </div>
+                  )}
+
+                  {/* Result Card */}
+                  {generatedAIData && (
+                    <div className="mt-3 p-3 bg-purple-50/60 rounded-xl border border-purple-200 space-y-2">
+                      <div className="flex items-center justify-between">
+                        <span className="font-bold text-xs text-purple-900 truncate">
+                          {generatedAIData.title}
+                        </span>
+                        <span className="text-[10px] bg-purple-100 text-purple-700 font-bold px-1.5 py-0.5 rounded">
+                          Hasil AI
+                        </span>
+                      </div>
+
+                      <div className="rounded-lg border border-purple-200 p-2 overflow-hidden flex items-center justify-center h-28"
+                           style={{ background: 'repeating-conic-gradient(#f1f5f9 0% 25%, #ffffff 0% 50%) 0 0 / 12px 12px' }}>
+                        <img src={generatedAIData.dataUrl} alt="AI Design" className="max-h-full max-w-full object-contain drop-shadow" />
+                      </div>
+
+                      <p className="text-[10px] text-gray-600 leading-tight">
+                        {generatedAIData.story}
+                      </p>
+
+                      <div className="pt-1 space-y-1.5">
+                        <button
+                          type="button"
+                          onClick={handleApplyAIGeneratedToShirt}
+                          className="w-full py-2 bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs rounded-lg shadow-sm flex items-center justify-center gap-1.5 transition-colors"
+                        >
+                          <Check className="w-3.5 h-3.5" /> Pasang ke Kaos 3D
+                        </button>
+                        
+                        {generatedAIData.suggestedShirtColor && (
+                          <button
+                            type="button"
+                            onClick={() => setColor(generatedAIData.suggestedShirtColor)}
+                            className="w-full py-1.5 bg-white border border-purple-300 text-purple-800 font-semibold text-[11px] rounded-lg hover:bg-purple-50 flex items-center justify-center gap-1.5 transition-colors"
+                          >
+                            <span className="w-3 h-3 rounded-full border border-gray-300" style={{ backgroundColor: generatedAIData.suggestedShirtColor }} />
+                            Terapkan Warna Kain Rekomendasi
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Sub-tab 2: AI Fashion Stylist */}
+              {aiSubTab === 'stylist' && (
+                <div className="space-y-3">
+                  <div className="p-3 bg-gray-50 rounded-xl border border-gray-200 text-xs space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-gray-600">Warna Kaos Saat Ini:</span>
+                      <div className="flex items-center gap-1.5">
+                        <span className="w-4 h-4 rounded-full border border-gray-300 shadow-xs" style={{ backgroundColor: color }} />
+                        <span className="font-mono font-bold text-gray-800">{color}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={handleRunAICritique}
+                    disabled={isCritiquing}
+                    className="w-full py-2.5 px-3 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-extrabold text-xs shadow-md shadow-blue-500/20 flex items-center justify-center gap-2 transition-all disabled:opacity-50"
+                  >
+                    {isCritiquing ? (
+                      <>
+                        <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                        Gemini mengevaluasi harmoni...
+                      </>
+                    ) : (
+                      <>
+                        <Sparkles className="w-3.5 h-3.5" />
+                        Analisis Harmoni Mode
+                      </>
+                    )}
+                  </button>
+
+                  {aiCritique && (
+                    <div className="p-3 bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl border border-blue-200 text-xs space-y-2">
+                      <div className="flex items-center justify-between">
+                        <span className="font-bold text-blue-900">{aiCritique.verdict}</span>
+                        <span className="font-extrabold bg-blue-600 text-white px-2 py-0.5 rounded-full text-[11px]">
+                          {aiCritique.harmonyScore}/100
+                        </span>
+                      </div>
+                      <p className="text-[11px] text-gray-700 leading-relaxed">
+                        {aiCritique.feedback}
+                      </p>
+                      {aiCritique.recommendedPantColors && (
+                        <div className="pt-1">
+                          <span className="text-[10px] text-gray-500 font-semibold block mb-1">
+                            Rekomendasi Celana / Bawahan:
+                          </span>
+                          <div className="flex gap-2">
+                            {aiCritique.recommendedPantColors.map((hex, i) => (
+                              <div key={i} className="flex items-center gap-1 text-[10px] bg-white px-2 py-0.5 rounded-md border border-gray-200">
+                                <span className="w-3 h-3 rounded-full border border-gray-300" style={{ backgroundColor: hex }} />
+                                <span className="font-mono">{hex}</span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
+
             </div>
           )}
         </div>
       </div>
 
       {/* Bottom Toolbar */}
-        <div className="absolute bottom-8 left-1/2 -translate-x-1/2 bg-white/90 backdrop-blur-sm px-6 py-3 rounded-full shadow-lg flex gap-4">
-          <button 
-            onClick={() => { setViewMode('front'); setResetTrigger(r => r + 1); }}
-            className={`p-2 rounded-full transition-all ${viewMode === 'front' ? 'bg-gray-100 ring-2 ring-gray-400' : 'hover:bg-gray-50'}`}
-          >
-            <img src={stylishTshirtIcon} alt="Front" className="w-8 h-8" />
-          </button>
-          <button 
-            onClick={() => { setViewMode('back'); setResetTrigger(r => r + 1); }}
-            className={`p-2 rounded-full transition-all ${viewMode === 'back' ? 'bg-gray-100 ring-2 ring-gray-400' : 'hover:bg-gray-50'}`}
-          >
-            <img src={logoTshirtIcon} alt="Back" className="w-8 h-8" />
-          </button>
-        </div>
+      <div className="absolute bottom-8 left-1/2 -translate-x-1/2 bg-white/90 backdrop-blur-sm px-6 py-3 rounded-full shadow-lg flex gap-4">
+        <button 
+          onClick={() => { setViewMode('front'); setResetTrigger(r => r + 1); }}
+          className={`p-2 rounded-full transition-all ${viewMode === 'front' ? 'bg-gray-100 ring-2 ring-gray-400' : 'hover:bg-gray-50'}`}
+        >
+          <img src={stylishTshirtIcon} alt="Front" className="w-8 h-8" />
+        </button>
+        <button 
+          onClick={() => { setViewMode('back'); setResetTrigger(r => r + 1); }}
+          className={`p-2 rounded-full transition-all ${viewMode === 'back' ? 'bg-gray-100 ring-2 ring-gray-400' : 'hover:bg-gray-50'}`}
+        >
+          <img src={logoTshirtIcon} alt="Back" className="w-8 h-8" />
+        </button>
+      </div>
 
       {/* Design Extractor & Background Remover Modal */}
       <DesignExtractorModal
@@ -813,6 +1096,12 @@ export default function Design3D() {
         onClose={() => setExtractorModal({ ...extractorModal, isOpen: false })}
         originalImage={extractorModal.imageSrc}
         onApply={handleApplyExtractedDesign}
+      />
+
+      {/* Gemini API Key Configuration Modal */}
+      <GeminiKeyModal
+        isOpen={showGeminiKeyModal}
+        onClose={() => setShowGeminiKeyModal(false)}
       />
 
     </div>

@@ -1,6 +1,8 @@
-import { useState, useRef, useEffect } from 'react';
-import { X, Wand2, Crop, RotateCcw, Check, Sparkles, Eye, ShieldCheck, Scissors } from 'lucide-react';
-import { extractArtwork, detectDominantColor } from '../../utils/imageUtils';
+import { useState, useEffect } from 'react';
+import { X, Wand2, Crop, RotateCcw, Check, Sparkles, Eye, ShieldCheck, Scissors, Key, AlertCircle } from 'lucide-react';
+import { extractArtwork } from '../../utils/imageUtils';
+import { extractArtworkWithGemini, getGeminiApiKey } from '../../services/geminiService';
+import GeminiKeyModal from './GeminiKeyModal';
 
 export default function DesignExtractorModal({ isOpen, onClose, originalImage, onApply }) {
   if (!isOpen || !originalImage) return null;
@@ -8,7 +10,7 @@ export default function DesignExtractorModal({ isOpen, onClose, originalImage, o
   // Active view tab: 'preview' (clean transparent) or 'crop' (adjust boundary)
   const [activeView, setActiveView] = useState('preview');
 
-  // Crop percentage trims (Default to 22% top, 20% bottom, 18% sides to instantly cut collar, tag, sleeves, hem)
+  // Crop percentage trims (Default to 22% top, 20% bottom, 18% sides to cut collar, tag, sleeves, hem)
   const [cropTrim, setCropTrim] = useState({ top: 22, bottom: 20, left: 18, right: 18 });
 
   // Background removal options
@@ -19,6 +21,12 @@ export default function DesignExtractorModal({ isOpen, onClose, originalImage, o
 
   const [processedImage, setProcessedImage] = useState(null);
   const [isProcessing, setIsProcessing] = useState(false);
+
+  // Gemini AI States
+  const [isGeminiAnalyzing, setIsGeminiAnalyzing] = useState(false);
+  const [geminiInsight, setGeminiInsight] = useState(null);
+  const [geminiError, setGeminiError] = useState('');
+  const [showKeyModal, setShowKeyModal] = useState(false);
 
   // Process image whenever parameters change
   useEffect(() => {
@@ -51,6 +59,33 @@ export default function DesignExtractorModal({ isOpen, onClose, originalImage, o
     };
   }, [originalImage, cropTrim, tolerance, mode, removeWhiteOuter, autoTrim]);
 
+  // Google Gemini AI Auto-Extraction
+  const handleGeminiAutoExtract = async () => {
+    const key = getGeminiApiKey();
+    if (!key) {
+      setShowKeyModal(true);
+      return;
+    }
+
+    setIsGeminiAnalyzing(true);
+    setGeminiError('');
+
+    try {
+      const aiResult = await extractArtworkWithGemini(originalImage);
+      if (aiResult && aiResult.crop) {
+        setCropTrim(aiResult.crop);
+        setTolerance(aiResult.suggestedTolerance);
+        setGeminiInsight(aiResult);
+        setActiveView('preview');
+      }
+    } catch (err) {
+      console.error('Gemini extraction error:', err);
+      setGeminiError(err.message || 'Gagal menganalisis dengan Gemini AI');
+    } finally {
+      setIsGeminiAnalyzing(false);
+    }
+  };
+
   // Presets
   const applyPresetChestOnly = () => {
     setCropTrim({ top: 22, bottom: 20, left: 18, right: 18 });
@@ -78,17 +113,19 @@ export default function DesignExtractorModal({ isOpen, onClose, originalImage, o
       <div className="bg-white rounded-3xl shadow-2xl w-full max-w-4xl overflow-hidden flex flex-col max-h-[92vh] animate-in fade-in zoom-in-95 duration-200 border border-gray-100">
         
         {/* Header */}
-        <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between bg-gradient-to-r from-purple-50 via-indigo-50 to-white">
+        <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between bg-gradient-to-r from-blue-50 via-indigo-50 to-purple-50">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-purple-600 to-indigo-600 text-white flex items-center justify-center shadow-lg shadow-purple-500/30">
+            <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-blue-600 via-indigo-600 to-purple-600 text-white flex items-center justify-center shadow-lg shadow-indigo-500/30">
               <Sparkles className="w-5 h-5" />
             </div>
             <div>
               <h3 className="font-extrabold text-gray-900 text-base sm:text-lg flex items-center gap-2">
-                Pembersih Desain Otomatis
-                <span className="text-[10px] bg-purple-100 text-purple-700 px-2 py-0.5 rounded-full font-bold">Anti Corak Kaos</span>
+                Pembersih Desain Kaos
+                <span className="text-[10px] bg-gradient-to-r from-blue-600 to-indigo-600 text-white px-2 py-0.5 rounded-full font-bold shadow-xs">
+                  Gemini Flash AI
+                </span>
               </h3>
-              <p className="text-xs text-gray-500">Memotong kerah, lengan & jahitan kaos bawaan foto agar hanya tersisa gambar ilustrasi bersih</p>
+              <p className="text-xs text-gray-500">Isolasi & hapus kain kaos secara otomatis dengan bantuan Computer Vision Gemini</p>
             </div>
           </div>
           <button onClick={onClose} className="p-2 text-gray-400 hover:text-gray-700 rounded-full hover:bg-gray-100 transition-colors">
@@ -107,7 +144,7 @@ export default function DesignExtractorModal({ isOpen, onClose, originalImage, o
               <button
                 type="button"
                 onClick={() => setActiveView('preview')}
-                className={`flex-1 py-1.5 rounded-lg flex items-center justify-center gap-1.5 transition-all ${activeView === 'preview' ? 'bg-white text-purple-700 shadow-sm' : 'text-gray-500'}`}
+                className={`flex-1 py-1.5 rounded-lg flex items-center justify-center gap-1.5 transition-all ${activeView === 'preview' ? 'bg-white text-indigo-700 shadow-sm' : 'text-gray-500'}`}
               >
                 <Eye className="w-3.5 h-3.5" /> Hasil Bersih 3D
               </button>
@@ -125,9 +162,9 @@ export default function DesignExtractorModal({ isOpen, onClose, originalImage, o
                  style={{ background: 'repeating-conic-gradient(#e2e8f0 0% 25%, #ffffff 0% 50%) 0 0 / 16px 16px' }}>
               
               {isProcessing && (
-                <div className="absolute inset-0 bg-white/70 backdrop-blur-xs flex items-center justify-center z-20 text-xs font-bold text-purple-700 gap-2">
-                  <div className="w-4 h-4 border-2 border-purple-600 border-t-transparent rounded-full animate-spin"></div>
-                  Memotong & membersihkan corak...
+                <div className="absolute inset-0 bg-white/70 backdrop-blur-xs flex items-center justify-center z-20 text-xs font-bold text-indigo-700 gap-2">
+                  <div className="w-4 h-4 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin"></div>
+                  Memproses & membersihkan corak...
                 </div>
               )}
 
@@ -150,7 +187,7 @@ export default function DesignExtractorModal({ isOpen, onClose, originalImage, o
                   />
                   {/* Visual Crop Frame Overlay */}
                   <div 
-                    className="absolute border-2 border-dashed border-purple-500 bg-purple-500/10 pointer-events-none transition-all shadow-2xl"
+                    className="absolute border-2 border-dashed border-indigo-500 bg-indigo-500/10 pointer-events-none transition-all shadow-2xl"
                     style={{
                       top: `${cropTrim.top}%`,
                       bottom: `${cropTrim.bottom}%`,
@@ -158,7 +195,7 @@ export default function DesignExtractorModal({ isOpen, onClose, originalImage, o
                       right: `${cropTrim.right}%`
                     }}
                   >
-                    <span className="absolute top-1.5 left-1.5 bg-purple-600 text-white text-[9px] font-bold px-1.5 py-0.5 rounded shadow">
+                    <span className="absolute top-1.5 left-1.5 bg-indigo-600 text-white text-[9px] font-bold px-1.5 py-0.5 rounded shadow">
                       Area Desain Diambil
                     </span>
                   </div>
@@ -178,37 +215,106 @@ export default function DesignExtractorModal({ isOpen, onClose, originalImage, o
 
             <p className="text-[11px] text-gray-500 mt-2 text-center flex items-center gap-1">
               <ShieldCheck className="w-3.5 h-3.5 text-emerald-600 inline" />
-              Semua corak jahitan kerah, lengan, dan lipatan kain telah dibuang 100%.
+              Kerah, jahitan lengan, dan pinggir kain terpotong rapi untuk ditempel ke model 3D.
             </p>
           </div>
 
           {/* Right Column: Controls */}
           <div className="md:col-span-5 flex flex-col justify-between space-y-4">
-            <div className="space-y-4">
+            <div className="space-y-3.5">
               
+              {/* Gemini AI Auto-Extractor Card */}
+              <div className="bg-gradient-to-br from-indigo-50 via-blue-50 to-purple-50 border border-indigo-200/80 rounded-2xl p-3.5 space-y-2.5 shadow-sm">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-black text-indigo-950 flex items-center gap-1.5">
+                    <Sparkles className="w-4 h-4 text-indigo-600 animate-pulse" />
+                    Gemini Flash AI Detection:
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setShowKeyModal(true)}
+                    className="text-[10px] text-indigo-600 hover:text-indigo-900 font-bold flex items-center gap-1"
+                  >
+                    <Key className="w-3 h-3" /> {getGeminiApiKey() ? 'API Key OK' : 'Atur API Key'}
+                  </button>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={handleGeminiAutoExtract}
+                  disabled={isGeminiAnalyzing}
+                  className="w-full py-2.5 px-3 rounded-xl bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white font-extrabold text-xs shadow-md shadow-indigo-600/20 flex items-center justify-center gap-2 transition-all hover:scale-[1.01] active:scale-[0.99] disabled:opacity-50"
+                >
+                  {isGeminiAnalyzing ? (
+                    <>
+                      <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                      Gemini menganalisis letak artwork...
+                    </>
+                  ) : (
+                    <>
+                      <Sparkles className="w-3.5 h-3.5" />
+                      Ekstraksi Otomatis dengan Gemini AI
+                    </>
+                  )}
+                </button>
+
+                {geminiInsight && (
+                  <div className="bg-white/90 backdrop-blur-xs rounded-xl p-2.5 border border-indigo-100 text-[11px] space-y-1.5 shadow-xs">
+                    <div className="flex items-center justify-between">
+                      <span className="font-bold text-indigo-950 truncate max-w-[170px]">{geminiInsight.artworkTitle}</span>
+                      <span className="text-[9px] bg-indigo-100 text-indigo-700 px-1.5 py-0.5 rounded-full font-bold">
+                        {geminiInsight.artworkStyle}
+                      </span>
+                    </div>
+                    <p className="text-gray-500 text-[10px] leading-tight">{geminiInsight.placementAdvice}</p>
+                    <div className="flex items-center gap-2 pt-0.5 text-[10px] text-gray-600 font-medium">
+                      <span>Warna Kain Kaos:</span>
+                      <span className="w-3.5 h-3.5 rounded-full border border-gray-300 shadow-xs inline-block" style={{ backgroundColor: geminiInsight.fabricColor }} />
+                      <span className="font-mono text-gray-700 font-semibold">{geminiInsight.fabricColor}</span>
+                    </div>
+                  </div>
+                )}
+
+                {geminiError && (
+                  <div className="text-[11px] text-red-600 bg-red-50 p-2.5 rounded-xl border border-red-200 flex items-start gap-1.5">
+                    <AlertCircle className="w-4 h-4 shrink-0 text-red-500 mt-0.5" />
+                    <div className="flex-1">
+                      <p className="leading-tight">{geminiError}</p>
+                      <button
+                        type="button"
+                        onClick={() => setShowKeyModal(true)}
+                        className="text-xs font-bold text-red-700 underline mt-1 block"
+                      >
+                        Buka Pengaturan API Key
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+
               {/* Presets Card */}
-              <div className="bg-purple-50/70 border border-purple-200/80 rounded-2xl p-3.5">
-                <span className="text-xs font-bold text-purple-900 block mb-2">⚡ Pilihan Cepat Potong Foto Kaos:</span>
+              <div className="bg-gray-50/80 border border-gray-200 rounded-2xl p-3">
+                <span className="text-xs font-bold text-gray-800 block mb-2">⚡ Pilihan Cepat Potong Manual:</span>
                 <div className="grid grid-cols-2 gap-2 text-xs">
                   <button
                     type="button"
                     onClick={applyPresetChestOnly}
-                    className="py-2 px-2.5 rounded-xl bg-purple-600 text-white font-bold shadow-md shadow-purple-600/20 hover:bg-purple-700 transition-all text-center leading-tight"
+                    className="py-1.5 px-2 rounded-xl bg-white border border-gray-300 text-gray-800 font-semibold hover:bg-gray-100 transition-all text-center leading-tight shadow-xs"
                   >
-                    🎯 Dada Saja (Rekomendasi)
+                    🎯 Sablon Dada
                   </button>
                   <button
                     type="button"
                     onClick={applyPresetTight}
-                    className="py-2 px-2.5 rounded-xl bg-white border border-purple-300 text-purple-800 font-semibold hover:bg-purple-50 transition-all text-center leading-tight"
+                    className="py-1.5 px-2 rounded-xl bg-white border border-gray-300 text-gray-800 font-semibold hover:bg-gray-100 transition-all text-center leading-tight shadow-xs"
                   >
-                    ✂️ Potong Ketat (Desain Kecil)
+                    ✂️ Potong Ketat
                   </button>
                 </div>
               </div>
 
               {/* 4-Way Crop Sliders */}
-              <div className="bg-gray-50 border border-gray-200 rounded-2xl p-3.5 space-y-2.5">
+              <div className="bg-gray-50 border border-gray-200 rounded-2xl p-3.5 space-y-2">
                 <div className="flex items-center justify-between">
                   <label className="text-xs font-bold text-gray-800 flex items-center gap-1.5">
                     <Crop className="w-3.5 h-3.5 text-gray-700" />
@@ -217,7 +323,7 @@ export default function DesignExtractorModal({ isOpen, onClose, originalImage, o
                   <button
                     type="button"
                     onClick={() => setActiveView('crop')}
-                    className="text-[11px] text-purple-600 font-semibold hover:underline"
+                    className="text-[11px] text-indigo-600 font-semibold hover:underline"
                   >
                     Lihat Garis Potong
                   </button>
@@ -227,48 +333,48 @@ export default function DesignExtractorModal({ isOpen, onClose, originalImage, o
                   <div>
                     <div className="flex justify-between text-[11px] text-gray-600 mb-0.5">
                       <span>Potong Atas (Kerah & Leher):</span>
-                      <span className="font-bold text-purple-700">{cropTrim.top}%</span>
+                      <span className="font-bold text-indigo-700">{cropTrim.top}%</span>
                     </div>
                     <input 
                       type="range" min="0" max="45" value={cropTrim.top} 
                       onChange={(e) => setCropTrim({ ...cropTrim, top: parseInt(e.target.value) })}
-                      className="w-full accent-purple-600 h-1.5 cursor-pointer" 
+                      className="w-full accent-indigo-600 h-1.5 cursor-pointer" 
                     />
                   </div>
 
                   <div>
                     <div className="flex justify-between text-[11px] text-gray-600 mb-0.5">
-                      <span>Potong Bawah (Lipatan / Kelim):</span>
-                      <span className="font-bold text-purple-700">{cropTrim.bottom}%</span>
+                      <span>Potong Bawah (Lipatan Kelim):</span>
+                      <span className="font-bold text-indigo-700">{cropTrim.bottom}%</span>
                     </div>
                     <input 
                       type="range" min="0" max="45" value={cropTrim.bottom} 
                       onChange={(e) => setCropTrim({ ...cropTrim, bottom: parseInt(e.target.value) })}
-                      className="w-full accent-purple-600 h-1.5 cursor-pointer" 
+                      className="w-full accent-indigo-600 h-1.5 cursor-pointer" 
                     />
                   </div>
 
-                  <div className="grid grid-cols-2 gap-3 pt-1">
+                  <div className="grid grid-cols-2 gap-3 pt-0.5">
                     <div>
                       <div className="flex justify-between text-[10px] text-gray-600 mb-0.5">
                         <span>Kiri (Lengan):</span>
-                        <span className="font-bold text-purple-700">{cropTrim.left}%</span>
+                        <span className="font-bold text-indigo-700">{cropTrim.left}%</span>
                       </div>
                       <input 
                         type="range" min="0" max="40" value={cropTrim.left} 
                         onChange={(e) => setCropTrim({ ...cropTrim, left: parseInt(e.target.value) })}
-                        className="w-full accent-purple-600 h-1.5 cursor-pointer" 
+                        className="w-full accent-indigo-600 h-1.5 cursor-pointer" 
                       />
                     </div>
                     <div>
                       <div className="flex justify-between text-[10px] text-gray-600 mb-0.5">
                         <span>Kanan (Lengan):</span>
-                        <span className="font-bold text-purple-700">{cropTrim.right}%</span>
+                        <span className="font-bold text-indigo-700">{cropTrim.right}%</span>
                       </div>
                       <input 
                         type="range" min="0" max="40" value={cropTrim.right} 
                         onChange={(e) => setCropTrim({ ...cropTrim, right: parseInt(e.target.value) })}
-                        className="w-full accent-purple-600 h-1.5 cursor-pointer" 
+                        className="w-full accent-indigo-600 h-1.5 cursor-pointer" 
                       />
                     </div>
                   </div>
@@ -276,23 +382,19 @@ export default function DesignExtractorModal({ isOpen, onClose, originalImage, o
               </div>
 
               {/* Background Fabric Removal Slider */}
-              <div className="bg-purple-50/50 border border-purple-100 rounded-2xl p-3.5 space-y-2">
+              <div className="bg-indigo-50/50 border border-indigo-100 rounded-2xl p-3 space-y-1.5">
                 <div className="flex items-center justify-between">
                   <label className="text-xs font-bold text-gray-800 flex items-center gap-1.5">
-                    <Wand2 className="w-3.5 h-3.5 text-purple-600" />
-                    Kebersihan Warna Kain (Toleransi):
+                    <Wand2 className="w-3.5 h-3.5 text-indigo-600" />
+                    Toleransi Bersih Kain Kaos:
                   </label>
-                  <span className="text-xs font-bold text-purple-700">{tolerance}%</span>
+                  <span className="text-xs font-bold text-indigo-700">{tolerance}%</span>
                 </div>
                 <input 
                   type="range" min="15" max="85" value={tolerance} 
                   onChange={(e) => setTolerance(parseInt(e.target.value))}
-                  className="w-full accent-purple-600 h-1.5 cursor-pointer" 
+                  className="w-full accent-indigo-600 h-1.5 cursor-pointer" 
                 />
-                <div className="flex justify-between text-[10px] text-gray-400">
-                  <span>Lembut (Artwork Halus)</span>
-                  <span>Kuat (Hapus Kain Bersih)</span>
-                </div>
               </div>
 
             </div>
@@ -310,7 +412,7 @@ export default function DesignExtractorModal({ isOpen, onClose, originalImage, o
                 type="button"
                 onClick={handleApply}
                 disabled={!processedImage}
-                className="flex-1 bg-gradient-to-r from-purple-600 via-indigo-600 to-purple-700 hover:from-purple-700 hover:to-indigo-700 text-white font-extrabold py-3 px-4 rounded-xl text-xs sm:text-sm shadow-xl shadow-purple-600/30 flex items-center justify-center gap-2 transition-all hover:scale-[1.01] active:scale-[0.99] disabled:opacity-50"
+                className="flex-1 bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white font-extrabold py-3 px-4 rounded-xl text-xs sm:text-sm shadow-xl shadow-indigo-600/30 flex items-center justify-center gap-2 transition-all hover:scale-[1.01] active:scale-[0.99] disabled:opacity-50"
               >
                 <Check className="w-4 h-4" /> Terapkan ke Kaos 3D
               </button>
@@ -321,6 +423,13 @@ export default function DesignExtractorModal({ isOpen, onClose, originalImage, o
         </div>
 
       </div>
+
+      {/* Gemini API Key Configuration Modal */}
+      <GeminiKeyModal
+        isOpen={showKeyModal}
+        onClose={() => setShowKeyModal(false)}
+        onSuccess={() => handleGeminiAutoExtract()}
+      />
     </div>
   );
 }
