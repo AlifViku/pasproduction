@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useStore } from '../../store/useStore';
-import { Check, X, Eye } from 'lucide-react';
+import { Check, X, Eye, MessageSquare } from 'lucide-react';
+import { sendPaymentVerifiedNotification } from '../../services/fonnteService';
 
 export default function AdminPayments() {
   const orders = useStore(state => state.orders);
@@ -13,7 +14,16 @@ export default function AdminPayments() {
   const handleVerify = (orderId, status) => {
     const notes = verificationNotes[orderId] || '';
     verifyPayment(orderId, status, notes);
-    alert(`Pembayaran pesanan ${orderId} telah di-${status === 'Diproses' ? 'Terima' : 'Tolak'}`);
+
+    // Kirim notifikasi WhatsApp otomatis ke customer via Fonnte
+    const targetOrder = orders.find(o => o.id === orderId);
+    if (targetOrder) {
+      sendPaymentVerifiedNotification(targetOrder, status === 'Diproses', notes).catch(err => {
+        console.warn('Fonnte payment notification error:', err);
+      });
+    }
+
+    alert(`Pembayaran pesanan ${orderId} telah di-${status === 'Diproses' ? 'Terima' : 'Tolak'}. Notifikasi WhatsApp otomatis telah dikirim ke customer.`);
     setVerificationNotes(prev => {
       const newNotes = { ...prev };
       delete newNotes[orderId];

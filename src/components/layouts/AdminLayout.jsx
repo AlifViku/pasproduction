@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom';
-import { LayoutDashboard, ShoppingBag, LogOut, User, Shirt, Package, CheckSquare, ListOrdered, Menu } from 'lucide-react';
+import { LayoutDashboard, ShoppingBag, LogOut, User, Shirt, Package, CheckSquare, ListOrdered, Menu, Settings } from 'lucide-react';
 import { useStore } from '../../store/useStore';
 
 export default function AdminLayout() {
@@ -15,6 +15,7 @@ export default function AdminLayout() {
     { name: 'Kelola Pesanan', href: '/admin/orders', icon: ShoppingBag },
     { name: 'Verifikasi Pembayaran', href: '/admin/payments', icon: CheckSquare },
     { name: 'Update Status Pesanan', href: '/admin/status', icon: ListOrdered },
+    { name: 'Pengaturan & WA Gateway', href: '/admin/settings', icon: Settings },
   ];
 
   const handleLogout = () => {

@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useStore } from '../../store/useStore';
 import { Upload, CheckCircle, Clock, Package, Shirt, Eye, Truck, MessageSquare, ExternalLink, CreditCard, ShieldCheck } from 'lucide-react';
+import { sendPaymentUploadedAdminNotification } from '../../services/fonnteService';
 
 export default function OrderStatus() {
   const navigate = useNavigate();
@@ -17,6 +18,15 @@ export default function OrderStatus() {
     setTimeout(() => {
       updatePaymentProof(orderId, 'uploaded_proof.jpg');
       setSelectedOrder(null);
+
+      // Kirim alert WhatsApp ke admin via Fonnte
+      const targetOrder = orders.find(o => o.id === orderId);
+      if (targetOrder) {
+        sendPaymentUploadedAdminNotification(targetOrder).catch(err => {
+          console.warn('Fonnte payment upload alert error:', err);
+        });
+      }
+
       alert('Bukti pembayaran berhasil diunggah. Menunggu verifikasi admin.');
     }, 500);
   };

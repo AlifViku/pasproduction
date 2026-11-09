@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { useStore } from '../../store/useStore';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
-import { Plus, Trash2, ShieldCheck, CheckCircle } from 'lucide-react';
+import { Plus, Trash2, ShieldCheck, CheckCircle, MessageSquare } from 'lucide-react';
+import { sendOrderCreatedCustomerNotification, sendOrderCreatedAdminNotification } from '../../services/fonnteService';
 
 export default function OrderForm() {
   const { state } = useLocation();
@@ -15,6 +16,7 @@ export default function OrderForm() {
   const [productId, setProductId] = useState(products[0]?.id || '');
   const [fabric, setFabric] = useState('Cotton Combed 30s');
   const [printType, setPrintType] = useState('DTF (Direct to Film)');
+  const [phone, setPhone] = useState(currentUser?.phone || '');
   const [notes, setNotes] = useState('');
 
   // Items State
@@ -96,12 +98,13 @@ export default function OrderForm() {
       return;
     }
 
+    const finalPhone = phone.trim() || currentUser.phone || '08123456789';
     const orderId = `ORD-${Math.floor(Math.random() * 100000)}`;
     const newOrder = {
       id: orderId,
       customerName: currentUser.name,
       customerId: currentUser.id,
-      customerPhone: currentUser.phone || '08123456789',
+      customerPhone: finalPhone,
       designId,
       productId,
       productName: selectedProduct?.name,
@@ -116,6 +119,11 @@ export default function OrderForm() {
     };
 
     addOrder(newOrder);
+
+    // Kirim notifikasi WhatsApp otomatis via Fonnte Gateway (asinkron tanpa blocking)
+    sendOrderCreatedCustomerNotification(newOrder).catch(err => console.warn('Customer WA notification error:', err));
+    sendOrderCreatedAdminNotification(newOrder).catch(err => console.warn('Admin WA notification error:', err));
+
     navigate('/status');
   };
 
@@ -276,11 +284,38 @@ export default function OrderForm() {
              )}
           </div>
 
-          <div className="bg-gray-50 p-6 rounded-2xl border border-gray-200">
-            <h3 className="text-lg font-bold text-gray-800 mb-4">3. Catatan & Ringkasan Akhir</h3>
-            <textarea value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Tuliskan catatan tambahan jika ada permintaan khusus untuk produksi..." className="w-full p-4 border border-gray-300 rounded-xl focus:ring-2 focus:ring-[#aa3bff] mb-6 resize-none shadow-sm" rows="3"></textarea>
+          <div className="bg-gray-50 p-6 rounded-2xl border border-gray-200 space-y-4">
+            <h3 className="text-lg font-bold text-gray-800">3. Kontak WhatsApp & Catatan Akhir</h3>
             
-            <div className="bg-gradient-brand p-6 rounded-2xl shadow-lg flex justify-between items-center text-white">
+            {/* WhatsApp Contact Input */}
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-1 flex items-center justify-between">
+                <span className="flex items-center gap-1.5">
+                  <MessageSquare className="w-4 h-4 text-emerald-600" /> Nomor WhatsApp Aktif (Untuk Notifikasi & Status)
+                </span>
+                <span className="text-[11px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
+                  Notifikasi Otomatis Fonnte
+                </span>
+              </label>
+              <input 
+                type="text" 
+                required 
+                value={phone} 
+                onChange={(e) => setPhone(e.target.value)} 
+                placeholder="Contoh: 08123456789 atau 628123456789" 
+                className="w-full p-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 bg-white font-mono font-semibold text-sm transition-all"
+              />
+              <p className="text-xs text-gray-500 mt-1">
+                Rincian tagihan, rekening transfer, dan progres pengerjaan kaos akan dikirimkan langsung ke nomor WhatsApp ini.
+              </p>
+            </div>
+
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-1">Catatan Tambahan (Opsional)</label>
+              <textarea value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Tuliskan catatan tambahan jika ada permintaan khusus untuk produksi..." className="w-full p-3.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-[#aa3bff] resize-none shadow-sm text-sm" rows="2"></textarea>
+            </div>
+            
+            <div className="bg-gradient-brand p-6 rounded-2xl shadow-lg flex justify-between items-center text-white mt-4">
                <div>
                  <span className="text-white/80 font-medium block text-sm">Estimasi Total Harga Pembayaran</span>
                  <span className="text-sm font-semibold">({totalQuantity} pcs x Rp {currentUnitPrice.toLocaleString('id-ID')})</span>

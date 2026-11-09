@@ -1,11 +1,15 @@
+import { useState } from 'react';
 import { useStore } from '../../store/useStore';
-import { Eye, Box } from 'lucide-react';
+import { Eye, Box, MessageSquare } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import WhatsappCustomerModal from '../../components/ui/WhatsappCustomerModal';
+import { sendOrderStatusUpdateNotification } from '../../services/fonnteService';
 
 export default function AdminOrders() {
   const orders = useStore(state => state.orders);
   const updateOrderStatus = useStore(state => state.updateOrderStatus);
   const navigate = useNavigate();
+  const [selectedWaOrder, setSelectedWaOrder] = useState(null);
 
   const statusOptions = [
     'Menunggu Pembayaran',
@@ -103,7 +107,13 @@ export default function AdminOrders() {
                   <td className="px-8 py-6 align-top text-center">
                     <select
                       value={order.status}
-                      onChange={(e) => updateOrderStatus(order.id, e.target.value)}
+                      onChange={(e) => {
+                        const newStatus = e.target.value;
+                        updateOrderStatus(order.id, newStatus);
+                        sendOrderStatusUpdateNotification(order, newStatus).catch(err => {
+                          console.warn('Fonnte status update notification error:', err);
+                        });
+                      }}
                       className={`inline-flex px-3 py-1.5 rounded-lg text-xs font-bold shadow-sm outline-none cursor-pointer appearance-none text-center ${
                         order.status === 'Selesai' ? 'bg-emerald-100 text-emerald-700 border border-emerald-200' :
                         order.status === 'Menunggu Verifikasi' ? 'bg-orange-100 text-orange-700 border border-orange-200' :
@@ -118,6 +128,14 @@ export default function AdminOrders() {
                     </select>
                   </td>
                   <td className="px-8 py-6 align-top text-center space-y-2">
+                    <button 
+                      onClick={() => setSelectedWaOrder(order)}
+                      className="w-full justify-center inline-flex items-center gap-1.5 text-xs font-bold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 px-3 py-2 rounded-lg cursor-pointer transition-colors"
+                      title="Kirim pesan WhatsApp langsung via Fonnte Gateway"
+                    >
+                      <MessageSquare className="w-3.5 h-3.5" /> Kirim WhatsApp
+                    </button>
+
                     <button 
                       onClick={() => navigate(`/admin/orders/preview/${order.id}`)}
                       className="w-full justify-center inline-flex items-center gap-1.5 text-xs font-bold text-white bg-gray-900 px-3 py-2 rounded-lg cursor-pointer hover:bg-gray-800 transition-colors"
@@ -144,6 +162,13 @@ export default function AdminOrders() {
           </table>
         </div>
       </div>
+
+      {/* WhatsApp Message Modal */}
+      <WhatsappCustomerModal 
+        isOpen={!!selectedWaOrder} 
+        onClose={() => setSelectedWaOrder(null)} 
+        order={selectedWaOrder} 
+      />
     </div>
   );
 }

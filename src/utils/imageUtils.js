@@ -103,12 +103,12 @@ export function autoTrimTransparent(canvas) {
  * missed interior white patches between design elements on a white shirt.
  *
  * Strategy:
- *  Pass 1 – Global fabric suppression: any opaque pixel whose color is very
- *            close to [fr, fg, fb] gets its alpha scaled down aggressively.
- *  Pass 2 – Neighbor-aware fringe erosion: semi-transparent pixels that are
- *            surrounded mostly by transparent neighbours get killed off.
- *  Pass 3 – Light-on-light suppression: if fabric is bright (e.g. white), do
- *            a second wider sweep to catch near-white fringe pixels.
+ *  Pass 1 – Global fabric suppression: pixels very close to fabric color → fade out.
+ *  Pass 2 – Edge-only white suppression (white shirt): only targets near-white pixels
+ *            that are adjacent to transparent neighbours (i.e. fringe/border pixels).
+ *            Does NOT touch white pixels inside the design (surrounded by opaque pixels).
+ *  Pass 3 – Neighbour-aware fringe erosion: semi-transparent pixels mostly surrounded
+ *            by transparent neighbours are fringe artifacts → fade to transparent.
  */
 export function removeFabricFringe(canvas, fabricRgb, options = {}) {
   const {
@@ -127,7 +127,20 @@ export function removeFabricFringe(canvas, fabricRgb, options = {}) {
   const fabricLum = 0.299 * fr + 0.587 * fg + 0.114 * fb;
   const isBrightFabric = fabricLum > 200; // white / cream / very light fabric
 
+  // Helper: check if pixel at flat index i has at least one transparent 4-neighbour
+  const hasTransparentNeighbour = (i) => {
+    const pos = i / 4;
+    const x = pos % w;
+    const y = Math.floor(pos / w);
+    if (x > 0     && data[i - 4 + 3]         < 30) return true;
+    if (x < w - 1 && data[i + 4 + 3]         < 30) return true;
+    if (y > 0     && data[i - w * 4 + 3]     < 30) return true;
+    if (y < h - 1 && data[i + w * 4 + 3]     < 30) return true;
+    return false;
+  };
+
   // --- Pass 1: Global fabric color suppression ---
+  // Only removes pixels very close to the detected fabric color.
   for (let i = 0; i < data.length; i += 4) {
     const a = data[i + 3];
     if (a < 10) continue; // Already transparent — skip
@@ -136,41 +149,46 @@ export function removeFabricFringe(canvas, fabricRgb, options = {}) {
     const dist = getColorDistance(r, g, b, fr, fg, fb);
 
     if (dist <= globalTolerance) {
-      // Proportional fade: 0 dist → fully transparent, at tolerance → unchanged
       const ratio = dist / globalTolerance;
-      data[i + 3] = Math.round(a * ratio * ratio); // quadratic fade for clean edge
+      data[i + 3] = Math.round(a * ratio * ratio); // quadratic fade
     }
   }
 
-  // --- Pass 2: Light-on-light suppression (extra sweep for white shirts) ---
+  // --- Pass 2: Edge-only white fringe suppression (white shirts only) ---
+  // KEY FIX: Only suppress near-white pixels that are on the EDGE of the design
+  // (adjacent to transparent area). White pixels surrounded by other opaque design
+  // pixels are PRESERVED — they are real design elements (highlights, white text, etc.)
   if (isBrightFabric && lightSuppression) {
-    const lightThreshold = Math.min(245, fr * 0.97);
+    const lightThreshold = Math.min(242, fr * 0.96);
     for (let i = 0; i < data.length; i += 4) {
       const a = data[i + 3];
       if (a < 10) continue;
+
       const r = data[i], g = data[i + 1], b = data[i + 2];
-      // Kill near-white pixels that survived pass 1 but are still remnant fabric
       const isNearWhite = r > lightThreshold && g > lightThreshold && b > lightThreshold;
+
       if (isNearWhite) {
-        // Soft fade: the whiter the pixel, the more transparent it becomes
-        const whiteness = Math.min(r, g, b) / 255;
-        data[i + 3] = Math.round(a * (1 - whiteness * 0.85));
+        // ONLY fade if this white pixel is touching a transparent neighbour
+        // → it's a fringe pixel on the border, not a design element inside
+        if (hasTransparentNeighbour(i)) {
+          const whiteness = Math.min(r, g, b) / 255;
+          data[i + 3] = Math.round(a * (1 - whiteness * 0.80));
+        }
+        // else: white pixel is surrounded by opaque pixels → preserve it (design element)
       }
     }
   }
 
   // --- Pass 3: Neighbour-aware fringe erosion ---
-  // Pixels that are semi-transparent AND mostly surrounded by transparent
-  // neighbours are fringe artifacts — eliminate them
+  // Semi-transparent pixels mostly surrounded by transparent neighbours are artifacts.
   for (let sweep = 0; sweep < fringeSweeps; sweep++) {
     const copy = new Uint8ClampedArray(data); // work on snapshot
     for (let y = 1; y < h - 1; y++) {
       for (let x = 1; x < w - 1; x++) {
         const idx = (y * w + x) * 4;
         const a = copy[idx + 3];
-        if (a < 5 || a > 220) continue; // skip transparent & solid
+        if (a < 5 || a > 220) continue; // skip fully transparent & solid
 
-        // Count transparent neighbours (4-connected)
         const nTop    = copy[((y - 1) * w + x) * 4 + 3];
         const nBottom = copy[((y + 1) * w + x) * 4 + 3];
         const nLeft   = copy[(y * w + (x - 1)) * 4 + 3];
@@ -178,7 +196,6 @@ export function removeFabricFringe(canvas, fabricRgb, options = {}) {
         const transparentNeighbours = [nTop, nBottom, nLeft, nRight].filter(v => v < 30).length;
 
         if (transparentNeighbours >= 3) {
-          // Isolated semi-transparent fringe — fade to transparent
           data[idx + 3] = Math.round(a * 0.15);
         } else if (transparentNeighbours === 2) {
           data[idx + 3] = Math.round(a * 0.45);
