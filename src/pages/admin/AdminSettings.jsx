@@ -53,7 +53,7 @@ export default function AdminSettings() {
   // Test message state
   const [testTarget, setTestTarget] = useState(adminPhone || '');
   const [testMessage, setTestMessage] = useState(
-    'Halo! Ini adalah pesan pengujian integrasi WhatsApp Gateway PAS Production via Fonnte API 🚀'
+    `╭────────────────────────────╮\n  ✨ *PAS PRODUCTION* ✨\n  _Uji Coba WhatsApp Gateway_\n╰────────────────────────────╯\n\nHalo! Pesan ini merupakan konfirmasi bahwa sistem notifikasi WhatsApp resmi *PAS Production* telah berhasil terhubung dan siap beroperasi dengan sempurna. 👕🎉`
   );
   const [sendingTest, setSendingTest] = useState(false);
   const [testResult, setTestResult] = useState(null);
@@ -121,12 +121,12 @@ export default function AdminSettings() {
     if (res.success) {
       setTestResult({
         type: 'success',
-        text: `Berhasil terkirim ke ${formatWhatsappNumber(testTarget)} via Fonnte!`,
+        text: `Berhasil terkirim ke WhatsApp ${formatWhatsappNumber(testTarget)}!`,
       });
     } else {
       setTestResult({
         type: 'error',
-        text: res.message || 'Gagal mengirim. Pastikan status device "connect" di dashboard Fonnte.',
+        text: res.message || 'Gagal mengirim. Pastikan status WhatsApp "connect" di dashboard gateway.',
       });
     }
   };
@@ -412,7 +412,7 @@ export default function AdminSettings() {
                 type="submit"
                 className="inline-flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-sm px-6 py-3 rounded-xl shadow-lg shadow-emerald-600/25 transition-all cursor-pointer hover:-translate-y-0.5"
               >
-                <Check className="w-4 h-4" /> Simpan Konfigurasi Fonnte
+                <Check className="w-4 h-4" /> Simpan Konfigurasi WhatsApp
               </button>
 
               {saveSuccess && (

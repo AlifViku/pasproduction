@@ -293,8 +293,9 @@ export default function OrderForm() {
                 <span className="flex items-center gap-1.5">
                   <MessageSquare className="w-4 h-4 text-emerald-600" /> Nomor WhatsApp Aktif (Untuk Notifikasi & Status)
                 </span>
-                <span className="text-[11px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
-                  Notifikasi Otomatis Fonnte
+                <span className="text-[11px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200 flex items-center gap-1">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                  Notifikasi WhatsApp Aktif
                 </span>
               </label>
               <input 

@@ -1,11 +1,11 @@
 /**
- * Fonnte WhatsApp Gateway API Service for PAS Production
- * Official Documentation: https://fonnte.com
- * Supports:
- * - Direct browser-to-Fonnte API requests (CORS enabled)
- * - Automated notifications for order creation, payment verification, and production progress
+ * WhatsApp Gateway Service for PAS Production
+ * Official WhatsApp notification and messaging system
+ * Features:
+ * - Direct browser-to-gateway requests
+ * - Elegant, branded receipt and tracking templates for customers
  * - Admin alert notifications
- * - Live device status checking & test message dispatcher
+ * - Live connection testing and custom message dispatcher
  */
 
 const FONNTE_STORAGE_KEY = 'pas_fonnte_token';
@@ -57,7 +57,7 @@ export function setFonnteSettings(settings) {
   try {
     localStorage.setItem(FONNTE_SETTINGS_KEY, JSON.stringify(settings));
   } catch (err) {
-    console.error('Failed to save Fonnte settings:', err);
+    console.error('Gagal menyimpan pengaturan WhatsApp:', err);
   }
 }
 
@@ -80,11 +80,11 @@ export function formatWhatsappNumber(phone) {
 }
 
 /**
- * Checks WhatsApp device connection status and quota on Fonnte
+ * Checks WhatsApp device connection status and quota on gateway
  */
 export async function checkDeviceStatus(token = getFonnteToken()) {
   if (!token) {
-    return { success: false, message: 'Fonnte API Token belum dikonfigurasi.' };
+    return { success: false, message: 'API Token WhatsApp Gateway belum dikonfigurasi.' };
   }
 
   try {
@@ -109,14 +109,14 @@ export async function checkDeviceStatus(token = getFonnteToken()) {
   } catch (error) {
     return {
       success: false,
-      message: error?.message || 'Gagal menghubungi server Fonnte.',
+      message: error?.message || 'Gagal menghubungi server WhatsApp Gateway.',
       error,
     };
   }
 }
 
 /**
- * Core method to send a WhatsApp message via Fonnte API
+ * Core method to send a WhatsApp message
  */
 export async function sendWhatsappMessage({
   target,
@@ -126,13 +126,13 @@ export async function sendWhatsappMessage({
   token = getFonnteToken(),
 }) {
   if (!token) {
-    console.warn('[Fonnte] Pesan dibatalkan: Token API Fonnte belum dikonfigurasi.');
-    return { success: false, message: 'Token Fonnte belum dikonfigurasi.' };
+    console.warn('[WhatsApp Gateway] Pesan dibatalkan: Token API belum dikonfigurasi.');
+    return { success: false, message: 'Token API WhatsApp belum dikonfigurasi.' };
   }
 
   const formattedTarget = formatWhatsappNumber(target);
   if (!formattedTarget) {
-    console.warn('[Fonnte] Pesan dibatalkan: Nomor tujuan tidak valid.', target);
+    console.warn('[WhatsApp Gateway] Pesan dibatalkan: Nomor tujuan tidak valid.', target);
     return { success: false, message: 'Nomor telepon tujuan tidak valid.' };
   }
 
@@ -164,28 +164,28 @@ export async function sendWhatsappMessage({
     const result = await response.json();
 
     if (result.status) {
-      console.log(`[Fonnte] Berhasil mengirim pesan WhatsApp ke ${formattedTarget}:`, result);
+      console.log(`[WhatsApp Gateway] Pesan berhasil dikirim ke ${formattedTarget}:`, result);
       return { success: true, data: result };
     } else {
-      console.warn(`[Fonnte] Gagal mengirim pesan ke ${formattedTarget}:`, result);
+      console.warn(`[WhatsApp Gateway] Gagal mengirim pesan ke ${formattedTarget}:`, result);
       return {
         success: false,
-        message: result.reason || result.message || 'Gagal mengirim pesan dari Fonnte.',
+        message: result.reason || result.message || 'Gagal mengirim pesan WhatsApp.',
         data: result,
       };
     }
   } catch (error) {
-    console.error(`[Fonnte] Error koneksi saat kirim ke ${formattedTarget}:`, error);
+    console.error(`[WhatsApp Gateway] Error jaringan saat kirim ke ${formattedTarget}:`, error);
     return {
       success: false,
-      message: error?.message || 'Terjadi kesalahan jaringan saat menghubungi Fonnte API.',
+      message: error?.message || 'Terjadi kesalahan jaringan saat mengirim pesan WhatsApp.',
       error,
     };
   }
 }
 
 // ---------------------------------------------------------------------------
-// Specialized Notification Helpers
+// Specialized Branded Notification Templates
 // ---------------------------------------------------------------------------
 
 /**
@@ -215,33 +215,52 @@ export async function sendOrderCreatedCustomerNotification(order) {
     itemsSummary = order.items
       .map(
         (it) =>
-          `  • ${it.type === 'standard' ? `Ukuran ${it.size}` : 'Ukuran Custom'}: ${it.quantity} pcs`
+          `  ▫️ ${it.type === 'standard' ? `Ukuran *${it.size}*` : 'Ukuran *Custom*'} : *${it.quantity} pcs*`
       )
       .join('\n');
   }
 
-  const message = `Halo Kak *${order.customerName || 'Pelanggan'}*! 👋
+  const message = `╭────────────────────────────╮
+  👕 *PAS PRODUCTION* 👕
+  _Official Apparel Custom & Convection_
+╰────────────────────────────╯
 
-Terima kasih telah memesan produk custom di *PAS Production*. Pesanan Anda telah kami terima dan tercatat dalam sistem kami.
+Halo, Kak *${order.customerName || 'Pelanggan'}*! 👋
+Terima kasih telah mempercayakan pembuatan pakaian custom Anda kepada *PAS Production*. Pesanan Anda telah resmi tercatat dalam sistem kami.
 
-📋 *Rincian Pesanan:*
-• No. Pesanan: *#${order.id}*
-• Tanggal: ${orderDate}
-• Produk: *${order.productName || 'Kaos Kustom'}*
-• Bahan: ${order.fabric || 'Cotton Combed 30s'}
-• Sablon: ${order.printType || 'DTF'}
-• Total Jumlah: *${order.quantity} pcs*
-${itemsSummary ? `\n📦 *Rincian Ukuran:*\n${itemsSummary}\n` : ''}
-💰 *Total Tagihan:* *${formattedPrice}*
+📋 *DETAIL INVOICE PEMESANAN:*
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+• *No. Pesanan*    : *#${order.id}*
+• *Tanggal Order*  : ${orderDate}
+• *Model Kaos*     : *${order.productName || 'Kaos Kustom'}*
+• *Pilihan Bahan*  : ${order.fabric || 'Cotton Combed 30s'}
+• *Jenis Sablon*   : ${order.printType || 'DTF'}
+• *Total Kuantitas*: *${order.quantity} pcs*
+${itemsSummary ? `\n📦 *Rincian Variasi Ukuran:*\n${itemsSummary}\n` : ''}
+💰 *TOTAL TAGIHAN:*
+👉 *${formattedPrice}*
 Status: ⏳ *Menunggu Pembayaran*
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-💳 *Informasi Pembayaran (Transfer Bank):*
-• *BCA*: 123-456-7890 a.n. PAS Production
-• *Mandiri*: 987-654-3210 a.n. PAS Production
+💳 *PANDUAN PEMBAYARAN TRANSFER BANK:*
+Silakan lakukan pembayaran sesuai nominal di atas ke rekening resmi kami:
 
-Silakan transfer sesuai nominal di atas, lalu unggah foto bukti transfer Anda melalui menu *Status Pesanan* di website PAS Production agar pesanan dapat segera kami proses ke tahap produksi.
+🏦 *Bank BCA*
+• No. Rekening: *123-456-7890*
+• Atas Nama   : *PAS Production*
 
-Jika ada pertanyaan atau revisi desain, silakan balas pesan ini. Terima kasih! 🙏✨`;
+🏦 *Bank Mandiri*
+• No. Rekening: *987-654-3210*
+• Atas Nama   : *PAS Production*
+
+📸 *Langkah Selanjutnya:*
+Setelah transfer berhasil, mohon simpan bukti transfer dan unggah melalui menu *Status Pesanan* di website PAS Production agar pesanan segera masuk ke antrean produksi.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+💬 *Ada pertanyaan atau revisi desain?*
+Silakan langsung balas pesan WhatsApp ini. Tim kami siap membantu!
+
+_Salam hangat, Tim PAS Production_ 🙏✨`;
 
   return sendWhatsappMessage({ target, message });
 }
@@ -260,19 +279,25 @@ export async function sendOrderCreatedAdminNotification(order) {
     ? `Rp ${Number(order.totalPrice).toLocaleString('id-ID')}`
     : '-';
 
-  const message = `🔔 *NOTIFIKASI PESANAN BARU MASUK!* 🔔
+  const message = `╭────────────────────────────╮
+  🚨 *PESANAN BARU MASUK!* 🚨
+  _PAS Production Management_
+╰────────────────────────────╯
 
-Halo Admin, terdapat pesanan custom baru di PAS Production:
+Halo Admin, ada pesanan custom baru yang masuk ke sistem:
 
-• No. Pesanan: *#${order.id}*
-• Customer: *${order.customerName}*
-• Kontak WA: wa.me/${formatWhatsappNumber(order.customerPhone)}
-• Produk: *${order.productName || 'Kaos'}* (${order.quantity} pcs)
-• Bahan / Sablon: ${order.fabric || '-'} / ${order.printType || '-'}
-• Total Tagihan: *${formattedPrice}*
-• Catatan: ${order.notes || '-'}
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+• *No. Pesanan*   : *#${order.id}*
+• *Customer*      : *${order.customerName}*
+• *Kontak WA*     : wa.me/${formatWhatsappNumber(order.customerPhone)}
+• *Produk*        : *${order.productName || 'Kaos'}* (${order.quantity} pcs)
+• *Bahan / Sablon*: ${order.fabric || '-'} / ${order.printType || '-'}
+• *Total Tagihan* : *${formattedPrice}*
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+📝 *Catatan Khusus:*
+_${order.notes || 'Tidak ada catatan khusus.'}_
 
-Silakan buka Dashboard Admin untuk meninjau desain 3D dan rincian pesanan.`;
+Silakan buka Dashboard Admin untuk memeriksa desain 3D dan detail ukuran pakaian.`;
 
   return sendWhatsappMessage({ target: adminPhone, message });
 }
@@ -291,14 +316,20 @@ export async function sendPaymentUploadedAdminNotification(order) {
     ? `Rp ${Number(order.totalPrice).toLocaleString('id-ID')}`
     : '-';
 
-  const message = `💳 *BUKTI PEMBAYARAN BARU DIUNGGAH!*
+  const message = `╭────────────────────────────╮
+  💳 *BUKTI PEMBAYARAN BARU* 💳
+  _PAS Production Management_
+╰────────────────────────────╯
 
-Customer telah mengunggah bukti pembayaran:
-• No. Pesanan: *#${order.id}*
-• Customer: *${order.customerName}* (${order.customerPhone})
-• Nominal: *${formattedPrice}*
+Customer baru saja mengunggah bukti pembayaran transfer:
 
-Silakan buka menu *Verifikasi Pembayaran* di Dashboard Admin untuk memverifikasi.`;
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+• *No. Pesanan* : *#${order.id}*
+• *Customer*    : *${order.customerName}* (${order.customerPhone})
+• *Nominal*     : *${formattedPrice}*
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Silakan login ke Dashboard Admin lalu buka menu *Verifikasi Pembayaran* untuk melakukan pengecekan.`;
 
   return sendWhatsappMessage({ target: adminPhone, message });
 }
@@ -315,26 +346,49 @@ export async function sendPaymentVerifiedNotification(order, isApproved, notes =
 
   let message = '';
   if (isApproved) {
-    message = `✅ *PEMBAYARAN DIVERIFIKASI*
+    message = `╭────────────────────────────╮
+  ✅ *PEMBAYARAN DIVERIFIKASI* ✅
+  _PAS Production Official_
+╰────────────────────────────╯
 
-Halo Kak *${order.customerName}*! 🎉
-Kabar baik, pembayaran Anda untuk pesanan *#${order.id}* telah *berhasil diverifikasi* oleh tim PAS Production.
+Halo, Kak *${order.customerName}*! 🎉
 
-Pesanan Anda kini resmi masuk ke tahap *Produksi*. Tim kami akan segera menyiapkan bahan dan proses sablon sesuai spesifikasi pesanan Anda.
-${notes ? `\n📝 *Catatan Admin:* ${notes}\n` : ''}
-Anda dapat memantau proses produksi secara realtime melalui menu *Status Pesanan* di aplikasi PAS Production.
+Kabar gembira! Pembayaran Anda untuk pesanan *#${order.id}* telah *BERHASIL DIVERIFIKASI* oleh tim keuangan PAS Production.
 
-Terima kasih atas kepercayaannya! 🙏✨`;
+📋 *RINCIAN PESANAN:*
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+• *No. Pesanan* : *#${order.id}*
+• *Produk*      : *${order.productName || 'Kaos Kustom'}* (${order.quantity} pcs)
+• *Status Bayar*: *LUNAS (Verified)*
+• *Tahap Baru*  : 🏭 *MASUK PROSES PRODUKSI*
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+${notes ? `📝 *Catatan Admin:* ${notes}\n\n` : ''}Pesanan Anda saat ini sudah masuk ke antrean workshop kami. Tim PAS Production akan segera memproses pemilihan kain dan cetak sablon presisi.
+
+Pantau perkembangan produksi Anda secara realtime melalui menu *Status Pesanan* di website kami.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+_PAS Production — Kualitas Terbaik untuk Setiap Helai Pakaian Anda._ 🙏✨`;
   } else {
-    message = `⚠️ *VERIFIKASI PEMBAYARAN BELUM SESUAI*
+    message = `╭────────────────────────────╮
+  ⚠️ *KONFIRMASI PEMBAYARAN* ⚠️
+  _PAS Production Official_
+╰────────────────────────────╯
 
-Halo Kak *${order.customerName}*,
-Bukti pembayaran untuk pesanan *#${order.id}* belum dapat kami verifikasi.
+Halo, Kak *${order.customerName}*,
 
-${notes ? `📝 *Catatan Admin:* ${notes}\n` : ''}
-Mohon periksa kembali transfer Anda dan silakan unggah ulang bukti transfer yang jelas melalui menu *Status Pesanan*.
+Mohon maaf, bukti pembayaran yang Anda unggah untuk pesanan *#${order.id}* belum dapat kami verifikasi.
 
-Jika membutuhkan bantuan, silakan langsung balas pesan WhatsApp ini. Terima kasih! 🙏`;
+📋 *KETERANGAN:*
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+${notes ? `📝 *Alasan / Catatan:* ${notes}` : 'Bukti transfer tidak terbaca dengan jelas atau nominal belum sesuai.'}
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+💡 *Langkah Perbaikan:*
+Silakan periksa kembali mutasi transfer Anda dan unggah ulang foto bukti transfer yang jelas melalui menu *Status Pesanan*.
+
+Jika membutuhkan bantuan atau ingin konfirmasi langsung, cukup balas pesan WhatsApp ini ya kak.
+
+_Terima kasih atas kerja samanya!_ 🙏`;
   }
 
   return sendWhatsappMessage({ target, message });
@@ -356,47 +410,60 @@ export async function sendOrderStatusUpdateNotification(order, newStatus) {
   switch (newStatus) {
     case 'Desain Direview':
       statusEmoji = '🎨';
-      statusDesc = 'Desain 3D Anda sedang ditinjau dan disiapkan untuk resolusi cetak terbaik.';
+      statusDesc = 'Desain 3D Anda sedang ditinjau oleh tim grafis untuk memastikan resolusi cetak tajam dan komposisi warna sempurna.';
       break;
     case 'Pemotongan Kain':
       statusEmoji = '✂️';
-      statusDesc = 'Bahan kain kaos berkualitas Anda sedang dalam proses pemotongan pola presisi.';
+      statusDesc = 'Bahan kain berkualitas tinggi pilihan Anda sedang dalam proses pemotongan pola presisi sesuai daftar ukuran.';
       break;
     case 'Sablon / Bordir':
       statusEmoji = '🖨️';
-      statusDesc = 'Artwork desain sedang dicetak dengan teknologi sablon berkualitas tinggi.';
+      statusDesc = 'Artwork desain sedang dicetak dengan teknologi sablon berkualitas tinggi agar awet, cerah, dan tidak mudah retak.';
       break;
     case 'Penjahitan':
       statusEmoji = '🧵';
-      statusDesc = 'Kaos Anda sedang dalam proses penjahitan rapi oleh penjahit profesional kami.';
+      statusDesc = 'Pakaian Anda sedang dirakit dan dijahit rapi dengan standar jahitan rantai kokoh khas distro oleh penjahit ahli kami.';
       break;
     case 'Quality Control':
       statusEmoji = '🔍';
-      statusDesc = 'Pesanan Anda sedang melalui pemeriksaan mutu ketat untuk memastikan hasil sempurna.';
+      statusDesc = 'Pakaian Anda sedang melalui proses inspeksi mutu ketat untuk memastikan tidak ada cacat jahitan maupun sablon.';
       break;
     case 'Siap Dikirim':
       statusEmoji = '📦';
-      statusDesc = 'Pesanan Anda telah selesai dipacking rapi dan siap dikirimkan ke alamat Anda.';
+      statusDesc = 'Produk telah selesai dipacking rapi dan siap dikirimkan ke alamat Anda / siap diambil di workshop kami.';
       break;
     case 'Selesai':
       statusEmoji = '🎉';
-      statusDesc = 'Pesanan Anda telah selesai. Terima kasih telah mempercayakan produksi kaos kepada PAS Production!';
+      statusDesc = 'Pesanan Anda telah selesai secara keseluruhan. Terima kasih banyak telah mempercayakan produksi pakaian kepada PAS Production!';
       break;
     default:
       statusEmoji = '⚡';
-      statusDesc = `Status pesanan Anda kini telah diperbarui ke: ${newStatus}.`;
+      statusDesc = `Status produksi pesanan Anda saat ini telah diperbarui ke tahapan: *${newStatus}*.`;
   }
 
-  const message = `${statusEmoji} *UPDATE STATUS PRODUKSI PAS PRODUCTION*
+  const message = `╭────────────────────────────╮
+  ✨ *PAS PRODUCTION* ✨
+  _Laporan Perkembangan Produksi_
+╰────────────────────────────╯
 
-Halo Kak *${order.customerName}*!
-Pesanan Anda *#${order.id}* (${order.productName || 'Kaos Kustom'}) telah mencapai tahap:
+Halo, Kak *${order.customerName}*! 👋
+Pesanan pakaian custom Anda kini telah mencapai tahapan baru:
 
-✨ *${newStatus.toUpperCase()}* ✨
+📋 *UPDATE STATUS TERKINI:*
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+• *No. Pesanan*   : *#${order.id}*
+• *Model Produk*  : *${order.productName || 'Kaos Kustom'}* (${order.quantity} pcs)
+• *Tahap Sekarang*: ${statusEmoji} *${newStatus.toUpperCase()}*
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
+📌 *Keterangan Pengerjaan:*
 ${statusDesc}
 
-Terima kasih atas kesabarannya, kami selalu memastikan kualitas terbaik untuk setiap helai pakaian Anda! 👕🔥`;
+Kami selalu berkomitmen memberikan hasil produksi pakaian terbaik dan paling nyaman untuk Anda.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+🌐 _Pantau progres lengkap di website PAS Production._
+_Terima kasih atas kesabarannya!_ 👕🔥`;
 
   return sendWhatsappMessage({ target, message });
 }
@@ -407,4 +474,3 @@ Terima kasih atas kesabarannya, kami selalu memastikan kualitas terbaik untuk se
 export async function sendManualWhatsappMessage(phone, message) {
   return sendWhatsappMessage({ target: phone, message });
 }
-

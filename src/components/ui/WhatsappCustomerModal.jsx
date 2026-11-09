@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { X, Send, MessageSquare, ExternalLink, Check, AlertCircle, Sparkles } from 'lucide-react';
+import { X, Send, MessageSquare, ExternalLink, Check, AlertCircle } from 'lucide-react';
 import { sendWhatsappMessage, formatWhatsappNumber } from '../../services/fonnteService';
 
 export default function WhatsappCustomerModal({ isOpen, onClose, order }) {
@@ -14,23 +14,23 @@ export default function WhatsappCustomerModal({ isOpen, onClose, order }) {
   const [sending, setSending] = useState(false);
   const [statusMsg, setStatusMsg] = useState(null); // { type: 'success' | 'error', text: '' }
 
-  // Quick message presets
+  // Quick message presets with official branded format
   const presets = [
     {
       title: 'Konfirmasi Desain & Bahan',
-      text: `Halo Kak *${customerName}*! 👋\n\nKami dari *PAS Production* ingin konfirmasi mengenai detail desain dan bahan untuk pesanan *#${orderId}* (${order.productName || 'Kaos Kustom'}). Mohon infokan jika ada permintaan khusus atau penyesuaian posisi sablon ya kak. Terima kasih! 🙏`,
+      text: `╭────────────────────────────╮\n  👕 *PAS PRODUCTION* 👕\n  _Konfirmasi Pesanan Custom_\n╰────────────────────────────╯\n\nHalo, Kak *${customerName}*! 👋\n\nKami dari tim *PAS Production* ingin konfirmasi mengenai detail desain dan bahan untuk pesanan *#${orderId}* (${order.productName || 'Kaos Kustom'}).\n\nMohon informasikan jika ada permintaan khusus atau penyesuaian posisi sablon ya kak. Terima kasih! 🙏✨`,
     },
     {
-      title: 'Kirim Ulang Info Rekening',
-      text: `Halo Kak *${customerName}*,\n\nBerikut informasi rekening pembayaran untuk pesanan *#${orderId}* sebesar *Rp ${order.totalPrice ? Number(order.totalPrice).toLocaleString('id-ID') : '-'}*:\n\n• *BCA*: 123-456-7890 a.n. PAS Production\n• *Mandiri*: 987-654-3210 a.n. PAS Production\n\nSetelah transfer, jangan lupa unggah bukti pembayaran di menu Status Pesanan ya kak. Terima kasih! 🙏`,
+      title: 'Rincian Rekening Pembayaran',
+      text: `╭────────────────────────────╮\n  💳 *PAS PRODUCTION* 💳\n  _Informasi Rekening Pembayaran_\n╰────────────────────────────╯\n\nHalo, Kak *${customerName}*,\n\nBerikut rincian rekening resmi kami untuk pesanan *#${orderId}* sebesar *Rp ${order.totalPrice ? Number(order.totalPrice).toLocaleString('id-ID') : '-'}*:\n\n🏦 *Bank BCA*: 123-456-7890 a.n. PAS Production\n🏦 *Bank Mandiri*: 987-654-3210 a.n. PAS Production\n\nSetelah transfer, jangan lupa unggah bukti transfer di menu *Status Pesanan* agar segera diproses ke tahap produksi. Terima kasih! 🙏`,
     },
     {
-      title: 'Pesanan Selesai / Siap Kirim',
-      text: `Halo Kak *${customerName}*! 🎉\n\nKabar gembira! Pesanan kaos *#${orderId}* Anda telah selesai diproduksi dengan standar kualitas PAS Production dan telah siap dikirim / diambil. Terima kasih atas kepercayaannya! 👕✨`,
+      title: 'Pesanan Siap Dikirim / Ambil',
+      text: `╭────────────────────────────╮\n  🎉 *PAS PRODUCTION* 🎉\n  _Pesanan Selesai Diproduksi_\n╰────────────────────────────╯\n\nHalo, Kak *${customerName}*! 🎉\n\nKabar gembira! Pesanan pakaian *#${orderId}* Anda telah selesai diproduksi dengan standar mutu terbaik PAS Production dan siap dikirimkan / diambil di workshop. Terima kasih banyak atas kepercayaannya! 👕✨`,
     },
     {
       title: 'Pemberitahuan Khusus',
-      text: `Halo Kak *${customerName}*,\n\nTim *PAS Production* ingin menyampaikan informasi penting terkait pesanan Anda *#${orderId}*: \n\n[Tulis pesan Anda di sini]`,
+      text: `╭────────────────────────────╮\n  📢 *PAS PRODUCTION* 📢\n  _Pemberitahuan Tim Produksi_\n╰────────────────────────────╯\n\nHalo, Kak *${customerName}*,\n\nTim *PAS Production* ingin menyampaikan informasi penting terkait pesanan Anda *#${orderId}*:\n\n[Tulis pesan Anda di sini]\n\nTerima kasih atas kerja samanya! 🙏`,
     },
   ];
 
@@ -64,7 +64,7 @@ export default function WhatsappCustomerModal({ isOpen, onClose, order }) {
     if (res.success) {
       setStatusMsg({
         type: 'success',
-        text: `Pesan WhatsApp berhasil dikirim ke ${formatWhatsappNumber(targetPhone)} via Fonnte!`,
+        text: `Pesan WhatsApp berhasil dikirim ke ${formatWhatsappNumber(targetPhone)}!`,
       });
       setTimeout(() => {
         onClose();
@@ -72,7 +72,7 @@ export default function WhatsappCustomerModal({ isOpen, onClose, order }) {
     } else {
       setStatusMsg({
         type: 'error',
-        text: res.message || 'Gagal mengirim pesan. Pastikan device Fonnte terhubung.',
+        text: res.message || 'Gagal mengirim pesan. Pastikan perangkat WhatsApp terhubung.',
       });
     }
   };
@@ -96,7 +96,7 @@ export default function WhatsappCustomerModal({ isOpen, onClose, order }) {
               <h3 className="font-extrabold text-gray-900 text-base flex items-center gap-2">
                 Kirim WhatsApp ke Customer
                 <span className="text-[10px] bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-full font-bold">
-                  Fonnte API
+                  Official PAS
                 </span>
               </h3>
               <p className="text-xs text-gray-500">
@@ -137,7 +137,7 @@ export default function WhatsappCustomerModal({ isOpen, onClose, order }) {
           {/* Quick Presets */}
           <div>
             <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">
-              Template Pesan Cepat:
+              Template Pesan Resmi:
             </label>
             <div className="flex flex-wrap gap-2">
               {presets.map((preset, idx) => (
@@ -160,14 +160,14 @@ export default function WhatsappCustomerModal({ isOpen, onClose, order }) {
             </label>
             <textarea
               required
-              rows={7}
+              rows={8}
               value={message}
               onChange={(e) => setMessage(e.target.value)}
               placeholder="Ketik pesan yang ingin dikirim ke pelanggan..."
               className="w-full text-sm p-4 border border-gray-200 rounded-2xl focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 outline-none bg-gray-50/50 resize-none font-sans leading-relaxed"
             ></textarea>
             <p className="text-[11px] text-gray-400 mt-1">
-              Gunakan format WhatsApp: *tebal*, _miring_, ~coret~.
+              Format WhatsApp otomatis: *tebal*, _miring_, ~coret~.
             </p>
           </div>
 
@@ -194,17 +194,17 @@ export default function WhatsappCustomerModal({ isOpen, onClose, order }) {
             <button
               type="submit"
               disabled={sending}
-              className="flex-1 flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-sm py-3 px-4 rounded-xl shadow-lg shadow-emerald-600/25 transition-all disabled:opacity-50"
+              className="flex-1 flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-sm py-3 px-4 rounded-xl shadow-lg shadow-emerald-600/25 transition-all disabled:opacity-50 cursor-pointer"
             >
               {sending ? (
                 <>
                   <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                  <span>Mengirim via Gateway...</span>
+                  <span>Mengirim Pesan...</span>
                 </>
               ) : (
                 <>
                   <Send className="w-4 h-4" />
-                  <span>Kirim via Fonnte Gateway</span>
+                  <span>Kirim Pesan WhatsApp</span>
                 </>
               )}
             </button>
@@ -224,4 +224,3 @@ export default function WhatsappCustomerModal({ isOpen, onClose, order }) {
     </div>
   );
 }
-
