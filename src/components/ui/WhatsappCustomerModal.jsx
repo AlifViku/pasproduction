@@ -224,3 +224,4 @@ export default function WhatsappCustomerModal({ isOpen, onClose, order }) {
     </div>
   );
 }
+

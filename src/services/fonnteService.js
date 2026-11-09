@@ -407,3 +407,4 @@ Terima kasih atas kesabarannya, kami selalu memastikan kualitas terbaik untuk se
 export async function sendManualWhatsappMessage(phone, message) {
   return sendWhatsappMessage({ target: phone, message });
 }
+

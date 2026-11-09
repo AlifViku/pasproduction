@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useStore } from '../../store/useStore';
 import { Upload, CheckCircle, Clock, Package, Shirt, Eye, Truck, MessageSquare, ExternalLink, CreditCard, ShieldCheck } from 'lucide-react';
-import { sendPaymentUploadedAdminNotification } from '../../services/fonnteService';
+import { sendPaymentUploadedAdminNotification, getAdminWhatsappPhone, formatWhatsappNumber } from '../../services/fonnteService';
 
 export default function OrderStatus() {
   const navigate = useNavigate();
@@ -149,14 +149,26 @@ export default function OrderStatus() {
                   <span className="font-semibold text-gray-800 text-sm">{order.status}</span>
                 </div>
 
-                {order.status === 'Menunggu Pembayaran' && (
-                  <button 
-                    onClick={() => setSelectedOrder(selectedOrder === order.id ? null : order.id)}
-                    className="flex items-center gap-2 bg-[#aa3bff] text-white px-4 py-2 rounded-xl hover:bg-[#9228e6] transition-colors font-bold text-xs shadow-md shadow-purple-500/20"
+                <div className="flex items-center gap-2">
+                  <a
+                    href={`https://wa.me/${formatWhatsappNumber(getAdminWhatsappPhone())}?text=${encodeURIComponent(`Halo CS PAS Production, saya ingin menanyakan tentang pesanan saya #${order.id} (${order.productName || 'Kaos Kustom'}). Terima kasih!`)}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-flex items-center gap-1.5 text-xs font-bold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 px-3 py-2 rounded-xl transition-colors shadow-sm"
+                    title="Tanya Admin / CS via WhatsApp"
                   >
-                    <Upload className="w-4 h-4" /> Bayar Sekarang
-                  </button>
-                )}
+                    <MessageSquare className="w-3.5 h-3.5" /> Tanya CS
+                  </a>
+
+                  {order.status === 'Menunggu Pembayaran' && (
+                    <button 
+                      onClick={() => setSelectedOrder(selectedOrder === order.id ? null : order.id)}
+                      className="flex items-center gap-2 bg-[#aa3bff] text-white px-4 py-2 rounded-xl hover:bg-[#9228e6] transition-colors font-bold text-xs shadow-md shadow-purple-500/20"
+                    >
+                      <Upload className="w-4 h-4" /> Bayar Sekarang
+                    </button>
+                  )}
+                </div>
               </div>
             </div>
           )})}
