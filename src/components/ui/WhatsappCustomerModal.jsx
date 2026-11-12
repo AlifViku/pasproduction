@@ -14,23 +14,23 @@ export default function WhatsappCustomerModal({ isOpen, onClose, order }) {
   const [sending, setSending] = useState(false);
   const [statusMsg, setStatusMsg] = useState(null); // { type: 'success' | 'error', text: '' }
 
-  // Quick message presets with official branded format
+  // Quick message presets with clean, natural format
   const presets = [
     {
       title: 'Konfirmasi Desain & Bahan',
-      text: `╭────────────────────────────╮\n  👕 *PAS PRODUCTION* 👕\n  _Konfirmasi Pesanan Custom_\n╰────────────────────────────╯\n\nHalo, Kak *${customerName}*! 👋\n\nKami dari tim *PAS Production* ingin konfirmasi mengenai detail desain dan bahan untuk pesanan *#${orderId}* (${order.productName || 'Kaos Kustom'}).\n\nMohon informasikan jika ada permintaan khusus atau penyesuaian posisi sablon ya kak. Terima kasih! 🙏✨`,
+      text: `Halo, ${customerName}!\n\nKami dari tim PAS Production ingin konfirmasi mengenai detail desain dan bahan untuk pesanan baju custom Anda (#${orderId}). Mohon informasikan jika ada permintaan khusus atau penyesuaian posisi sablon ya kak. Terima kasih!`,
     },
     {
       title: 'Rincian Rekening Pembayaran',
-      text: `╭────────────────────────────╮\n  💳 *PAS PRODUCTION* 💳\n  _Informasi Rekening Pembayaran_\n╰────────────────────────────╯\n\nHalo, Kak *${customerName}*,\n\nBerikut rincian rekening resmi kami untuk pesanan *#${orderId}* sebesar *Rp ${order.totalPrice ? Number(order.totalPrice).toLocaleString('id-ID') : '-'}*:\n\n🏦 *Bank BCA*: 123-456-7890 a.n. PAS Production\n🏦 *Bank Mandiri*: 987-654-3210 a.n. PAS Production\n\nSetelah transfer, jangan lupa unggah bukti transfer di menu *Status Pesanan* agar segera diproses ke tahap produksi. Terima kasih! 🙏`,
+      text: `Halo, ${customerName}!\n\nBerikut rincian rekening resmi pembayaran untuk pesanan baju custom Anda (#${orderId}) sebesar Rp ${order.totalPrice ? Number(order.totalPrice).toLocaleString('id-ID') : '-'}:\n\n- Bank BCA: 123-456-7890 a.n. PAS Production\n- Bank Mandiri: 987-654-3210 a.n. PAS Production\n\nSetelah melakukan pembayaran, jangan lupa konfirmasi melalui aplikasi PAS Production atau balas pesan ini ya kak. Terima kasih!`,
     },
     {
       title: 'Pesanan Siap Dikirim / Ambil',
-      text: `╭────────────────────────────╮\n  🎉 *PAS PRODUCTION* 🎉\n  _Pesanan Selesai Diproduksi_\n╰────────────────────────────╯\n\nHalo, Kak *${customerName}*! 🎉\n\nKabar gembira! Pesanan pakaian *#${orderId}* Anda telah selesai diproduksi dengan standar mutu terbaik PAS Production dan siap dikirimkan / diambil di workshop. Terima kasih banyak atas kepercayaannya! 👕✨`,
+      text: `Halo, ${customerName}!\n\nProgress pesanan baju custom Anda saat ini telah memasuki tahap siap dikirim. Pakaian Anda telah selesai dipacking rapi dan siap dikirimkan ke alamat Anda atau siap diambil di workshop kami. Terima kasih atas kepercayaan Anda!`,
     },
     {
       title: 'Pemberitahuan Khusus',
-      text: `╭────────────────────────────╮\n  📢 *PAS PRODUCTION* 📢\n  _Pemberitahuan Tim Produksi_\n╰────────────────────────────╯\n\nHalo, Kak *${customerName}*,\n\nTim *PAS Production* ingin menyampaikan informasi penting terkait pesanan Anda *#${orderId}*:\n\n[Tulis pesan Anda di sini]\n\nTerima kasih atas kerja samanya! 🙏`,
+      text: `Halo, ${customerName}!\n\nTim PAS Production ingin menyampaikan informasi terkait pesanan baju custom Anda (#${orderId}):\n\n[Tulis pesan Anda di sini]\n\nTerima kasih atas kerja samanya!`,
     },
   ];
 

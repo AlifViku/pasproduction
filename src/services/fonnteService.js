@@ -344,51 +344,13 @@ export async function sendPaymentVerifiedNotification(order, isApproved, notes =
   const target = order.customerPhone;
   if (!target) return { success: false, message: 'No HP customer tidak tersedia.' };
 
+  const customerName = order.customerName || 'Pelanggan';
   let message = '';
+
   if (isApproved) {
-    message = `╭────────────────────────────╮
-  ✅ *PEMBAYARAN DIVERIFIKASI* ✅
-  _PAS Production Official_
-╰────────────────────────────╯
-
-Halo, Kak *${order.customerName}*! 🎉
-
-Kabar gembira! Pembayaran Anda untuk pesanan *#${order.id}* telah *BERHASIL DIVERIFIKASI* oleh tim keuangan PAS Production.
-
-📋 *RINCIAN PESANAN:*
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-• *No. Pesanan* : *#${order.id}*
-• *Produk*      : *${order.productName || 'Kaos Kustom'}* (${order.quantity} pcs)
-• *Status Bayar*: *LUNAS (Verified)*
-• *Tahap Baru*  : 🏭 *MASUK PROSES PRODUKSI*
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-${notes ? `📝 *Catatan Admin:* ${notes}\n\n` : ''}Pesanan Anda saat ini sudah masuk ke antrean workshop kami. Tim PAS Production akan segera memproses pemilihan kain dan cetak sablon presisi.
-
-Pantau perkembangan produksi Anda secara realtime melalui menu *Status Pesanan* di website kami.
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-_PAS Production — Kualitas Terbaik untuk Setiap Helai Pakaian Anda._ 🙏✨`;
+    message = `Halo, ${customerName}!\n\nPembayaran untuk pesanan baju custom Anda telah berhasil diverifikasi. Pesanan Anda saat ini resmi masuk ke antrean proses produksi.${notes ? `\n\nCatatan admin: ${notes}` : ''}\n\nTerima kasih atas kepercayaan Anda kepada PAS Production!`;
   } else {
-    message = `╭────────────────────────────╮
-  ⚠️ *KONFIRMASI PEMBAYARAN* ⚠️
-  _PAS Production Official_
-╰────────────────────────────╯
-
-Halo, Kak *${order.customerName}*,
-
-Mohon maaf, bukti pembayaran yang Anda unggah untuk pesanan *#${order.id}* belum dapat kami verifikasi.
-
-📋 *KETERANGAN:*
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-${notes ? `📝 *Alasan / Catatan:* ${notes}` : 'Bukti transfer tidak terbaca dengan jelas atau nominal belum sesuai.'}
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-💡 *Langkah Perbaikan:*
-Silakan periksa kembali mutasi transfer Anda dan unggah ulang foto bukti transfer yang jelas melalui menu *Status Pesanan*.
-
-Jika membutuhkan bantuan atau ingin konfirmasi langsung, cukup balas pesan WhatsApp ini ya kak.
-
-_Terima kasih atas kerja samanya!_ 🙏`;
+    message = `Halo, ${customerName}!\n\nMohon maaf, pembayaran untuk pesanan baju custom Anda belum dapat kami verifikasi.${notes ? `\n\nCatatan admin: ${notes}` : ''}\n\nSilakan periksa kembali dan konfirmasi ulang melalui aplikasi PAS Production atau balas pesan ini jika membutuhkan bantuan.`;
   }
 
   return sendWhatsappMessage({ target, message });
@@ -404,66 +366,49 @@ export async function sendOrderStatusUpdateNotification(order, newStatus) {
   const target = order.customerPhone;
   if (!target) return { success: false, message: 'No HP customer tidak tersedia.' };
 
-  let statusEmoji = '🚀';
-  let statusDesc = '';
+  const customerName = order.customerName || 'Pelanggan';
+  let messageBody = '';
 
   switch (newStatus) {
     case 'Desain Direview':
-      statusEmoji = '🎨';
-      statusDesc = 'Desain 3D Anda sedang ditinjau oleh tim grafis untuk memastikan resolusi cetak tajam dan komposisi warna sempurna.';
+      messageBody = 'Progress pesanan baju custom Anda saat ini telah memasuki tahap review desain. Desain baju Anda sedang ditinjau oleh tim kami untuk memastikan kesesuaian dan resolusi cetak terbaik.';
       break;
+
     case 'Pemotongan Kain':
-      statusEmoji = '✂️';
-      statusDesc = 'Bahan kain berkualitas tinggi pilihan Anda sedang dalam proses pemotongan pola presisi sesuai daftar ukuran.';
+    case 'Pemotongan Bahan':
+      messageBody = 'Progress pesanan baju custom Anda saat ini telah memasuki tahap pemotongan bahan. Bahan kain sedang dipotong sesuai ukuran dan spesifikasi pesanan Anda.';
       break;
+
     case 'Sablon / Bordir':
-      statusEmoji = '🖨️';
-      statusDesc = 'Artwork desain sedang dicetak dengan teknologi sablon berkualitas tinggi agar awet, cerah, dan tidak mudah retak.';
+      messageBody = 'Progress pesanan baju custom Anda saat ini telah memasuki tahap sablon dan bordir. Artwork desain pesanan Anda sedang dalam proses pencetakan pada bahan pakaian.';
       break;
+
     case 'Penjahitan':
-      statusEmoji = '🧵';
-      statusDesc = 'Pakaian Anda sedang dirakit dan dijahit rapi dengan standar jahitan rantai kokoh khas distro oleh penjahit ahli kami.';
+      messageBody = 'Progress pesanan baju custom Anda saat ini telah memasuki tahap penjahitan. Potongan bahan pakaian Anda sedang dirakit dan dijahit rapi oleh tim penjahit kami.';
       break;
+
+    case 'Sedang Diproduksi':
+    case 'Diproses':
+      messageBody = 'Progress pesanan baju custom Anda saat ini telah memasuki tahap proses produksi. Pakaian Anda sedang dikerjakan di workshop kami sesuai spesifikasi pesanan.';
+      break;
+
     case 'Quality Control':
-      statusEmoji = '🔍';
-      statusDesc = 'Pakaian Anda sedang melalui proses inspeksi mutu ketat untuk memastikan tidak ada cacat jahitan maupun sablon.';
+      messageBody = 'Progress pesanan baju custom Anda saat ini telah memasuki tahap quality control. Pakaian Anda sedang melalui pemeriksaan mutu jahitan dan sablon untuk memastikan hasil terbaik.';
       break;
+
     case 'Siap Dikirim':
-      statusEmoji = '📦';
-      statusDesc = 'Produk telah selesai dipacking rapi dan siap dikirimkan ke alamat Anda / siap diambil di workshop kami.';
+      messageBody = 'Progress pesanan baju custom Anda saat ini telah memasuki tahap siap dikirim. Pakaian Anda telah selesai dipacking rapi dan siap dikirimkan ke alamat Anda atau siap diambil di workshop kami.';
       break;
+
     case 'Selesai':
-      statusEmoji = '🎉';
-      statusDesc = 'Pesanan Anda telah selesai secara keseluruhan. Terima kasih banyak telah mempercayakan produksi pakaian kepada PAS Production!';
+      messageBody = 'Pesanan baju custom Anda saat ini telah selesai sepenuhnya. Terima kasih telah mempercayakan pembuatan baju Anda kepada PAS Production!';
       break;
+
     default:
-      statusEmoji = '⚡';
-      statusDesc = `Status produksi pesanan Anda saat ini telah diperbarui ke tahapan: *${newStatus}*.`;
+      messageBody = `Progress pesanan baju custom Anda saat ini telah memasuki tahap ${newStatus.toLowerCase()}. Tim kami sedang memproses pesanan Anda sesuai spesifikasi.`;
   }
 
-  const message = `╭────────────────────────────╮
-  ✨ *PAS PRODUCTION* ✨
-  _Laporan Perkembangan Produksi_
-╰────────────────────────────╯
-
-Halo, Kak *${order.customerName}*! 👋
-Pesanan pakaian custom Anda kini telah mencapai tahapan baru:
-
-📋 *UPDATE STATUS TERKINI:*
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-• *No. Pesanan*   : *#${order.id}*
-• *Model Produk*  : *${order.productName || 'Kaos Kustom'}* (${order.quantity} pcs)
-• *Tahap Sekarang*: ${statusEmoji} *${newStatus.toUpperCase()}*
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-📌 *Keterangan Pengerjaan:*
-${statusDesc}
-
-Kami selalu berkomitmen memberikan hasil produksi pakaian terbaik dan paling nyaman untuk Anda.
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-🌐 _Pantau progres lengkap di website PAS Production._
-_Terima kasih atas kesabarannya!_ 👕🔥`;
+  const message = `Halo, ${customerName}!\n\n${messageBody}`;
 
   return sendWhatsappMessage({ target, message });
 }
