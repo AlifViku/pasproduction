@@ -1,15 +1,32 @@
 import { useState } from 'react';
 import { useStore } from '../../store/useStore';
-import { Check, X, Eye, MessageSquare } from 'lucide-react';
-import { sendPaymentVerifiedNotification } from '../../services/fonnteService';
+import { Check, X, Eye, MessageSquare, Bell } from 'lucide-react';
+import { sendPaymentVerifiedNotification, sendPaymentReminderNotification } from '../../services/fonnteService';
 
 export default function AdminPayments() {
   const orders = useStore(state => state.orders);
   const verifyPayment = useStore(state => state.verifyPayment);
   const [verificationNotes, setVerificationNotes] = useState({});
+  const [reminderSent, setReminderSent] = useState({});
 
   // Filter only orders waiting for payment verification
   const pendingPayments = orders.filter(o => o.status === 'Menunggu Verifikasi' || o.status === 'Menunggu Pembayaran');
+
+  const handleSendReminder = async (order) => {
+    setReminderSent(prev => ({ ...prev, [order.id]: true }));
+    try {
+      const res = await sendPaymentReminderNotification(order);
+      if (res.success) {
+        alert(`Pesan pengingat pelunasan WhatsApp berhasil dikirim ke ${order.customerName} (${order.customerPhone})!`);
+      } else {
+        alert(`Gagal mengirim pengingat: ${res.message}`);
+        setReminderSent(prev => ({ ...prev, [order.id]: false }));
+      }
+    } catch (err) {
+      alert(`Terjadi kesalahan: ${err?.message || 'Gagal mengirim pesan'}`);
+      setReminderSent(prev => ({ ...prev, [order.id]: false }));
+    }
+  };
 
   const handleVerify = (orderId, status) => {
     const notes = verificationNotes[orderId] || '';
@@ -100,7 +117,17 @@ export default function AdminPayments() {
                         </div>
                       </div>
                     ) : (
-                      <span className="text-sm font-medium text-gray-400">Menunggu pembayaran customer...</span>
+                      <div className="flex flex-col gap-2">
+                        <span className="text-xs font-medium text-gray-400">Menunggu pembayaran customer...</span>
+                        <button 
+                          onClick={() => handleSendReminder(order)}
+                          disabled={reminderSent[order.id]}
+                          className="inline-flex items-center gap-1.5 text-xs font-bold text-amber-700 bg-amber-50 hover:bg-amber-100 border border-amber-200 px-3 py-1.5 rounded-lg cursor-pointer transition-colors w-max disabled:opacity-60 disabled:cursor-not-allowed"
+                          title="Kirim pesan WhatsApp pengingat pelunasan via Fonnte"
+                        >
+                          <Bell className="w-3.5 h-3.5" /> {reminderSent[order.id] ? 'Pengingat Terkirim' : 'Kirim Pengingat Pelunasan'}
+                        </button>
+                      </div>
                     )}
                   </td>
                 </tr>

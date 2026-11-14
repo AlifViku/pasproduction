@@ -3,7 +3,7 @@ import { useStore } from '../../store/useStore';
 import { Eye, Box, MessageSquare } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import WhatsappCustomerModal from '../../components/ui/WhatsappCustomerModal';
-import { sendOrderStatusUpdateNotification } from '../../services/fonnteService';
+import { sendOrderStatusUpdateNotification, NotifikasiHelper } from '../../services/fonnteService';
 
 export default function AdminOrders() {
   const orders = useStore(state => state.orders);
@@ -110,7 +110,7 @@ export default function AdminOrders() {
                       onChange={(e) => {
                         const newStatus = e.target.value;
                         updateOrderStatus(order.id, newStatus);
-                        sendOrderStatusUpdateNotification(order, newStatus).catch(err => {
+                        NotifikasiHelper.kirimUpdateStatus(order, newStatus).catch(err => {
                           console.warn('Fonnte status update notification error:', err);
                         });
                       }}

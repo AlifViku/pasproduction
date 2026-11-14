@@ -1,6 +1,6 @@
 import { useStore } from '../../store/useStore';
 import { ArrowRight, CheckCircle2, MessageSquare } from 'lucide-react';
-import { sendOrderStatusUpdateNotification } from '../../services/fonnteService';
+import { sendOrderStatusUpdateNotification, NotifikasiHelper } from '../../services/fonnteService';
 
 export default function AdminOrderStatus() {
   const orders = useStore(state => state.orders);
@@ -30,7 +30,7 @@ export default function AdminOrderStatus() {
       // Kirim notifikasi WhatsApp otomatis ke customer via Fonnte
       const targetOrder = orders.find(o => o.id === orderId);
       if (targetOrder) {
-        sendOrderStatusUpdateNotification(targetOrder, nextStatus).catch(err => {
+        NotifikasiHelper.kirimUpdateStatus(targetOrder, nextStatus).catch(err => {
           console.warn('Fonnte status update notification error:', err);
         });
       }

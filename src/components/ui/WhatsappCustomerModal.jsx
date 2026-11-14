@@ -29,6 +29,10 @@ export default function WhatsappCustomerModal({ isOpen, onClose, order }) {
       text: `Halo, ${customerName}!\n\nProgress pesanan baju custom Anda saat ini telah memasuki tahap siap dikirim. Pakaian Anda telah selesai dipacking rapi dan siap dikirimkan ke alamat Anda atau siap diambil di workshop kami. Terima kasih atas kepercayaan Anda!`,
     },
     {
+      title: 'Pengingat Pelunasan Pesanan',
+      text: `Halo, ${customerName}!\n\nPesanan baju custom Anda dengan nomor pesanan #${orderId} telah selesai dikerjakan dan siap dikirim. Mohon kesediaannya untuk melakukan pelunasan sisa tagihan sebesar Rp ${order.totalPrice ? Number(order.totalPrice).toLocaleString('id-ID') : '-'} agar paket dapat segera kami kirimkan ke alamat Anda. Terima kasih atas kerja sama dan kepercayaannya kepada PAS Production!`,
+    },
+    {
       title: 'Pemberitahuan Khusus',
       text: `Halo, ${customerName}!\n\nTim PAS Production ingin menyampaikan informasi terkait pesanan baju custom Anda (#${orderId}):\n\n[Tulis pesan Anda di sini]\n\nTerima kasih atas kerja samanya!`,
     },

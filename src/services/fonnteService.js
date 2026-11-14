@@ -414,8 +414,34 @@ export async function sendOrderStatusUpdateNotification(order, newStatus) {
 }
 
 /**
- * 6. Send custom WhatsApp message directly
+ * 6. Customer Notification: Payment Reminder (Pengingat Pelunasan)
+ * Equivalent to: NotifikasiHelper::kirimPengingatPelunasan($pemesanan)
+ */
+export async function sendPaymentReminderNotification(order) {
+  const target = order.customerPhone;
+  if (!target) return { success: false, message: 'No HP customer tidak tersedia.' };
+
+  const customerName = order.customerName || 'Pelanggan';
+  const formattedPrice = order.totalPrice
+    ? `Rp ${Number(order.totalPrice).toLocaleString('id-ID')}`
+    : '-';
+
+  const message = `Halo, ${customerName}!\n\nPesanan baju custom Anda dengan nomor pesanan *#${order.id}* saat ini telah memasuki tahap akhir produksi / siap dikirim. Mohon kesediaannya untuk melakukan pelunasan sisa tagihan sebesar *${formattedPrice}* agar pesanan dapat segera kami kirimkan ke alamat Anda.\n\nTerima kasih atas kerja sama dan kepercayaannya kepada PAS Production! 🙏✨`;
+
+  return sendWhatsappMessage({ target, message });
+}
+
+/**
+ * 7. Send custom WhatsApp message directly
  */
 export async function sendManualWhatsappMessage(phone, message) {
   return sendWhatsappMessage({ target: phone, message });
 }
+
+/**
+ * Helper object matching Laravel's NotifikasiHelper syntax
+ */
+export const NotifikasiHelper = {
+  kirimUpdateStatus: (order, status) => sendOrderStatusUpdateNotification(order, status || order.status),
+  kirimPengingatPelunasan: (order) => sendPaymentReminderNotification(order),
+};
