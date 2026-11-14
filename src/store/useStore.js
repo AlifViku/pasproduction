@@ -1,11 +1,26 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 
+// Migrasi otomatis: Mengubah nama 'Eni Sumarni' menjadi 'Idhar Raka' pada storage
+try {
+  const STORAGE_KEY = 'pas-production-storage';
+  if (typeof window !== 'undefined' && window.localStorage) {
+    const raw = window.localStorage.getItem(STORAGE_KEY);
+    if (raw && /Eni Sumarni/i.test(raw)) {
+      const updated = raw.replace(/Eni Sumarni/gi, 'Idhar Raka');
+      window.localStorage.setItem(STORAGE_KEY, updated);
+    }
+  }
+} catch (e) {
+  console.warn('Auto-migration notice:', e);
+}
+
 const initialState = {
   currentUser: null, // { id, role, name, email, phone, address, status }
   users: [
     { id: 'ADM-001', role: 'admin', name: 'Admin PAS', email: 'admin@pas.com', password: 'admin', status: 'active' },
-    { id: 'CST-001', role: 'customer', name: 'Budi Santoso', email: 'budi@mail.com', password: 'password', phone: '08123456789', address: 'Jl. Merdeka No.1', status: 'active' }
+    { id: 'CST-001', role: 'customer', name: 'Budi Santoso', email: 'budi@mail.com', password: 'password', phone: '08123456789', address: 'Jl. Merdeka No.1', status: 'active' },
+    { id: 'CST-002', role: 'customer', name: 'Idhar Raka', email: 'idhar@mail.com', password: 'password', phone: '085721698220', address: 'Jl. Dipati Ukur No. 112, Bandung', status: 'active' }
   ],
   products: [
     { id: 'PRD-001', name: 'Kaos Lengan Pendek Combed 30s', basePrice: 50000, type: 'short' },
@@ -87,6 +102,39 @@ export const useStore = create(
     }),
     {
       name: 'pas-production-storage', // name of the item in the storage (must be unique)
+      onRehydrateStorage: () => (state) => {
+        if (!state) return;
+        let needsUpdate = false;
+        
+        if (state.currentUser?.name && /Eni Sumarni/i.test(state.currentUser.name)) {
+          state.currentUser.name = 'Idhar Raka';
+          needsUpdate = true;
+        }
+
+        if (Array.isArray(state.users)) {
+          state.users = state.users.map(u => {
+            if (/Eni Sumarni/i.test(u.name)) {
+              needsUpdate = true;
+              return { ...u, name: 'Idhar Raka' };
+            }
+            return u;
+          });
+        }
+
+        if (Array.isArray(state.orders)) {
+          state.orders = state.orders.map(o => {
+            if (/Eni Sumarni/i.test(o.customerName)) {
+              needsUpdate = true;
+              return { ...o, customerName: 'Idhar Raka' };
+            }
+            return o;
+          });
+        }
+
+        if (needsUpdate) {
+          useStore.setState(state);
+        }
+      },
     }
   )
 );
