@@ -54,7 +54,7 @@ class NotifikasiHelper
             ])->post(self::$fonnteUrl, [
                 'target'      => $targetFormatted,
                 'message'     => $pesan,
-                'countryCode' => '62',
+                'countryCode' => '',
             ]);
 
             $result = $response->json();

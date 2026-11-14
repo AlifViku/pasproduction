@@ -141,24 +141,23 @@ export async function sendWhatsappMessage({
   }
 
   try {
-    const formData = new FormData();
-    formData.append('target', formattedTarget);
-    formData.append('message', message.trim());
-    formData.append('countryCode', '62');
+    // Payload JSON request ke API Fonnte (sesuai Tabel 3.6)
+    const payload = {
+      target: formattedTarget,
+      message: message.trim(),
+      countryCode: '',
+    };
 
-    if (url) {
-      formData.append('url', url);
-    }
-    if (filename) {
-      formData.append('filename', filename);
-    }
+    if (url) payload.url = url;
+    if (filename) payload.filename = filename;
 
     const response = await fetch('https://api.fonnte.com/send', {
       method: 'POST',
       headers: {
         Authorization: token,
+        'Content-Type': 'application/json',
       },
-      body: formData,
+      body: JSON.stringify(payload),
     });
 
     const result = await response.json();
