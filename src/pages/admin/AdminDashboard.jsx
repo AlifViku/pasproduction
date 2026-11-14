@@ -1,15 +1,20 @@
 import { useStore } from '../../store/useStore';
-import { Package, Clock, CheckCircle, CreditCard, ArrowRight } from 'lucide-react';
+import { Package, Clock, CheckCircle, CreditCard, ArrowRight, DollarSign, Wallet } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
 export default function AdminDashboard() {
   const orders = useStore(state => state.orders);
 
+  // Hitung total penerimaan / keuangan dari pesanan yang tidak dibatalkan / sudah ada pembayaran
+  const totalPendapatan = orders
+    .filter(o => !['Menunggu Pembayaran', 'Dibatalkan'].includes(o.status))
+    .reduce((sum, o) => sum + (o.totalPrice || 0), 0);
+
   const stats = [
-    { name: 'Total Pesanan', value: orders.length, icon: Package, color: 'text-[#aa3bff]', bg: 'bg-[#aa3bff]/10' },
-    { name: 'Menunggu Verifikasi', value: orders.filter(o => o.status === 'Menunggu Verifikasi').length, icon: CreditCard, color: 'text-orange-500', bg: 'bg-orange-50' },
-    { name: 'Sedang Diproses', value: orders.filter(o => o.status === 'Diproses').length, icon: Clock, color: 'text-blue-500', bg: 'bg-blue-50' },
-    { name: 'Selesai', value: orders.filter(o => o.status === 'Selesai').length, icon: CheckCircle, color: 'text-emerald-500', bg: 'bg-emerald-50' },
+    { name: 'Total Pendapatan', value: `Rp ${totalPendapatan.toLocaleString('id-ID')}`, icon: Wallet, color: 'text-emerald-600', bg: 'bg-emerald-50' },
+    { name: 'Total Pesanan', value: `${orders.length} Pesanan`, icon: Package, color: 'text-[#aa3bff]', bg: 'bg-[#aa3bff]/10' },
+    { name: 'Menunggu Verifikasi', value: `${orders.filter(o => o.status === 'Menunggu Verifikasi').length} Pesanan`, icon: CreditCard, color: 'text-orange-500', bg: 'bg-orange-50' },
+    { name: 'Pesanan Selesai', value: `${orders.filter(o => o.status === 'Selesai').length} Pesanan`, icon: CheckCircle, color: 'text-blue-500', bg: 'bg-blue-50' },
   ];
 
   return (
