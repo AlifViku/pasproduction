@@ -8,6 +8,8 @@
  * - Live connection testing and custom message dispatcher
  */
 
+import { useStore } from '../store/useStore';
+
 const FONNTE_STORAGE_KEY = 'pas_fonnte_token';
 const FONNTE_ADMIN_PHONE_KEY = 'pas_fonnte_admin_phone';
 const FONNTE_SETTINGS_KEY = 'pas_fonnte_settings';
@@ -77,6 +79,58 @@ export function formatWhatsappNumber(phone) {
     cleaned = '62' + cleaned;
   }
   return cleaned;
+}
+
+/**
+ * Mengambil nomor WhatsApp customer secara otomatis:
+ * 1. Dari properti order.customerPhone atau order.phone
+ * 2. Dari data akun customer yang didaftarkan saat registrasi (useStore users)
+ * 3. Dari akun yang sedang login jika customer
+ */
+export function resolveCustomerPhone(order) {
+  if (!order) return '';
+  if (order.customerPhone && String(order.customerPhone).trim()) {
+    return String(order.customerPhone).trim();
+  }
+  if (order.phone && String(order.phone).trim()) {
+    return String(order.phone).trim();
+  }
+
+  // Lookup otomatis dari data registrasi akun pengguna (sesuai relasi customerId)
+  try {
+    const state = useStore.getState();
+    const users = state.users || [];
+
+    if (order.customerId) {
+      const matched = users.find(u => u.id === order.customerId);
+      if (matched?.phone && String(matched.phone).trim()) {
+        return String(matched.phone).trim();
+      }
+    }
+
+    if (order.customerName) {
+      const matched = users.find(u => u.name && u.name.trim().toLowerCase() === String(order.customerName).trim().toLowerCase());
+      if (matched?.phone && String(matched.phone).trim()) {
+        return String(matched.phone).trim();
+      }
+    }
+
+    if (order.customerEmail) {
+      const matched = users.find(u => u.email && u.email.trim().toLowerCase() === String(order.customerEmail).trim().toLowerCase());
+      if (matched?.phone && String(matched.phone).trim()) {
+        return String(matched.phone).trim();
+      }
+    }
+
+    // Jika yang sedang login adalah customer, gunakan nomor dari profilnya
+    if (state.currentUser?.phone && String(state.currentUser.phone).trim()) {
+      return String(state.currentUser.phone).trim();
+    }
+  } catch (err) {
+    console.warn('Gagal lookup nomor telepon dari data akun:', err);
+  }
+
+  return '';
 }
 
 /**
@@ -194,7 +248,7 @@ export async function sendOrderCreatedCustomerNotification(order) {
   const settings = getFonnteSettings();
   if (!settings.notifyCustomerOnOrder) return { success: false, skipped: true };
 
-  const target = order.customerPhone;
+  const target = resolveCustomerPhone(order);
   if (!target) return { success: false, message: 'No HP customer tidak tersedia.' };
 
   const formattedPrice = order.totalPrice
@@ -340,7 +394,7 @@ export async function sendPaymentVerifiedNotification(order, isApproved, notes =
   const settings = getFonnteSettings();
   if (!settings.notifyCustomerOnPayment) return { success: false, skipped: true };
 
-  const target = order.customerPhone;
+  const target = resolveCustomerPhone(order);
   if (!target) return { success: false, message: 'No HP customer tidak tersedia.' };
 
   const customerName = order.customerName || 'Pelanggan';
@@ -362,7 +416,7 @@ export async function sendOrderStatusUpdateNotification(order, newStatus) {
   const settings = getFonnteSettings();
   if (!settings.notifyCustomerOnStatus) return { success: false, skipped: true };
 
-  const target = order.customerPhone;
+  const target = resolveCustomerPhone(order);
   if (!target) return { success: false, message: 'No HP customer tidak tersedia.' };
 
   const customerName = order.customerName || 'Pelanggan';
@@ -417,7 +471,7 @@ export async function sendOrderStatusUpdateNotification(order, newStatus) {
  * Equivalent to: NotifikasiHelper::kirimPengingatPelunasan($pemesanan)
  */
 export async function sendPaymentReminderNotification(order) {
-  const target = order.customerPhone;
+  const target = resolveCustomerPhone(order);
   if (!target) return { success: false, message: 'No HP customer tidak tersedia.' };
 
   const customerName = order.customerName || 'Pelanggan';

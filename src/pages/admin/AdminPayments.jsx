@@ -13,11 +13,30 @@ export default function AdminPayments() {
   const pendingPayments = orders.filter(o => o.status === 'Menunggu Verifikasi' || o.status === 'Menunggu Pembayaran');
 
   const handleSendReminder = async (order) => {
+    // Cari no HP otomatis dari pesanan atau data akun registrasi
+    let targetPhone = order.customerPhone || order.phone;
+    if (!targetPhone) {
+      const state = useStore.getState();
+      const registeredUser = state.users.find(u => u.id === order.customerId || u.name === order.customerName);
+      if (registeredUser?.phone) {
+        targetPhone = registeredUser.phone;
+      }
+    }
+
+    // Jika data pesanan lama belum memiliki nomor, tanyakan ke admin agar tidak buntu
+    if (!targetPhone) {
+      targetPhone = prompt(`Nomor WhatsApp untuk pesanan #${order.id} (${order.customerName}) belum tercatat. Masukkan nomor WhatsApp pelanggan untuk mengirim pengingat:`, '08');
+      if (!targetPhone || !targetPhone.trim()) {
+        return; // Dibatalkan oleh admin
+      }
+      order.customerPhone = targetPhone.trim();
+    }
+
     setReminderSent(prev => ({ ...prev, [order.id]: true }));
     try {
-      const res = await sendPaymentReminderNotification(order);
+      const res = await sendPaymentReminderNotification({ ...order, customerPhone: targetPhone });
       if (res.success) {
-        alert(`Pesan pengingat pelunasan WhatsApp berhasil dikirim ke ${order.customerName} (${order.customerPhone})!`);
+        alert(`Pesan pengingat pelunasan WhatsApp berhasil dikirim ke ${order.customerName} (${targetPhone})!`);
       } else {
         alert(`Gagal mengirim pengingat: ${res.message}`);
         setReminderSent(prev => ({ ...prev, [order.id]: false }));

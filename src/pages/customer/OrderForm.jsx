@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useStore } from '../../store/useStore';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { Plus, Trash2, ShieldCheck, CheckCircle, MessageSquare } from 'lucide-react';
@@ -18,6 +18,12 @@ export default function OrderForm() {
   const [printType, setPrintType] = useState('DTF (Direct to Film)');
   const [phone, setPhone] = useState(currentUser?.phone || '');
   const [notes, setNotes] = useState('');
+
+  useEffect(() => {
+    if (currentUser?.phone && !phone) {
+      setPhone(currentUser.phone);
+    }
+  }, [currentUser]);
 
   // Items State
   const [items, setItems] = useState([]);
